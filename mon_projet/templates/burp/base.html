@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burp Suite Professional</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; }
+
+        .main-toolbar { display: flex; align-items: center; background: #0d0d1a; border-bottom: 1px solid #333; padding: 0; height: 36px; }
+        .burp-logo { width: 32px; height: 32px; background: #ff6b35; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; font-size: 14px; margin: 0 8px; border-radius: 3px; }
+        .menu-items { display: flex; gap: 0; }
+        .menu-item { padding: 0 14px; height: 36px; display: flex; align-items: center; color: #ccc; cursor: pointer; font-size: 12px; }
+        .menu-item:hover { background: #252540; color: #fff; }
+
+        .project-info { margin-left: auto; padding-right: 16px; font-size: 11px; color: #666; }
+
+        .tab-bar { display: flex; background: #16213e; border-bottom: 2px solid #0d0d1a; overflow-x: auto; }
+        .tab { padding: 10px 20px; cursor: pointer; font-size: 12px; color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; position: relative; transition: all 0.2s; }
+        .tab:hover { color: #ccc; background: #1e2d4a; }
+        .tab.active { color: #ff6b35; border-bottom: 2px solid #ff6b35; background: #1a1a2e; font-weight: 600; }
+        .tab .badge { background: #ff6b35; color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 8px; margin-left: 4px; }
+
+        .content { min-height: calc(100vh - 76px); }
+
+        .status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #ff6b35; color: #000; padding: 3px 16px; font-size: 11px; display: flex; align-items: center; gap: 20px; z-index: 1000; font-weight: 600; }
+        .status-bar span { color: #000; }
+    </style>
+</head>
+<body>
+
+<div class="main-toolbar">
+    {% load static %}
+    <img src="{% static 'images/burp_logo.png' %}" style="width:36px; height:36px; margin:0 8px; object-fit:contain;">
+    <div class="menu-items">
+        <div class="menu-item">Burp</div>
+        <div class="menu-item">Project</div>
+        <div class="menu-item">Intruder</div>
+        <div class="menu-item">Repeater</div>
+        <div class="menu-item">View</div>
+        <div class="menu-item">Help</div>
+    </div>
+    <div class="project-info">Temporary Project · Burp Suite Professional v2024.1</div>
+</div>
+
+<div class="tab-bar">
+    <a href="{% url 'burp:dashboard' %}" class="tab {% if page == 'dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="{% url 'burp:scanner' %}" class="tab {% if page == 'scanner' %}active{% endif %}">Target</a>
+    <a href="{% url 'burp:proxy' %}" class="tab {% if page == 'proxy' %}active{% endif %}">Proxy <span class="badge">0</span></a>
+    <a href="{% url 'burp:scanner' %}" class="tab {% if page == 'scanner' %}active{% endif %}">Scanner</a>
+    <a href="{% url 'burp:intruder' %}" class="tab {% if page == 'intruder' %}active{% endif %}">Intruder</a>
+    <a href="{% url 'burp:repeater' %}" class="tab {% if page == 'repeater' %}active{% endif %}">Repeater</a>
+    <a href="{% url 'burp:decoder' %}" class="tab {% if page == 'decoder' %}active{% endif %}">Decoder</a>
+    <a href="{% url 'burp:comparer' %}" class="tab {% if page == 'comparer' %}active{% endif %}">Comparer</a>
+    <a href="{% url 'burp:spider' %}" class="tab {% if page == 'spider' %}active{% endif %}">Logger</a>
+</div>
+
+<div class="content">
+    {% block content %}{% endblock %}
+</div>
+
+<div class="status-bar">
+    <span>● Proxy running on 127.0.0.1:8080</span>
+    <span>|</span>
+    <span>Memory: 256MB / 512MB</span>
+    <span>|</span>
+    <span>Ready</span>
+    <span style="margin-left:auto;">Burp Suite Professional v2024.1</span>
+</div>
+
+</body>
+</html>

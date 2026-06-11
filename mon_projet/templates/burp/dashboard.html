@@ -1,0 +1,142 @@
+{% extends 'burp/base.html' %}
+{% block content %}
+
+<style>
+.dashboard { padding: 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #16213e; border: 1px solid #333; border-radius: 6px; padding: 16px; }
+.stat-card .stat-value { font-size: 28px; font-weight: bold; color: #ff6b35; }
+.stat-card .stat-label { font-size: 12px; color: #888; margin-top: 4px; }
+.stat-card .stat-icon { font-size: 24px; float: right; margin-top: -4px; }
+
+.section { background: #16213e; border: 1px solid #333; border-radius: 6px; margin-bottom: 16px; }
+.section-header { padding: 12px 16px; border-bottom: 1px solid #333; font-size: 13px; font-weight: 600; color: #ff6b35; }
+.section-body { padding: 16px; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table th { padding: 8px 12px; text-align: left; color: #ff6b35; border-bottom: 1px solid #333; }
+.table td { padding: 7px 12px; border-bottom: 1px solid #1a1a2e; }
+.table tr:hover td { background: #252540; }
+
+.badge-high { background: #e74c3c; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+.badge-medium { background: #f39c12; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+.badge-low { background: #3498db; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+.badge-info { background: #555; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+
+.quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.action-btn { background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; text-decoration: none; display: block; }
+.action-btn:hover { background: #252540; border-color: #ff6b35; }
+.action-btn .action-icon { font-size: 24px; margin-bottom: 8px; }
+.action-btn .action-label { font-size: 12px; color: #ccc; }
+</style>
+
+<div class="dashboard">
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"></div>
+            <div class="stat-value">{{ stats.total_scans }}</div>
+            <div class="stat-label">Total Scans</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"></div>
+            <div class="stat-value">{{ stats.high_issues }}</div>
+            <div class="stat-label">High Issues</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"></div>
+            <div class="stat-value">{{ stats.proxy_requests }}</div>
+            <div class="stat-label">Proxy Requests</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🕷️</div>
+            <div class="stat-value">{{ stats.spider_urls }}</div>
+            <div class="stat-label">Spider URLs</div>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+
+        <div class="section">
+            <div class="section-header"> Recent Scans</div>
+            <div class="section-body" style="padding:0;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Target</th>
+                            <th>Status</th>
+                            <th>Issues</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for scan in recent_scans %}
+                        <tr>
+                            <td><a href="{% url 'burp:scan_detail' scan.id %}" style="color:#3498db;">{{ scan.name|truncatechars:40 }}</a></td>
+                            <td>
+                                {% if scan.status == 'completed' %}
+                                    <span style="color:#2ecc71;">● completed</span>
+                                {% elif scan.status == 'running' %}
+                                    <span style="color:#f39c12;">● running</span>
+                                {% else %}
+                                    <span style="color:#888;">● {{ scan.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ scan.results.count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align:center;color:#555;padding:20px;">Aucun scan — <a href="{% url 'burp:scanner' %}" style="color:#ff6b35;">Lancer un scan</a></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header"> Recent Issues</div>
+            <div class="section-body" style="padding:0;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Issue</th>
+                            <th>Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for issue in recent_issues %}
+                        <tr>
+                            <td>{{ issue.issue_type|truncatechars:35 }}</td>
+                            <td><span class="badge-{{ issue.severity }}">{{ issue.severity }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" style="text-align:center;color:#555;padding:20px;">Aucun problème détecté</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="section" style="margin-top:16px;">
+        <div class="section-header"> Quick Actions</div>
+        <div class="section-body">
+            <div class="quick-actions">
+                <a href="{% url 'burp:proxy' %}" class="action-btn">
+                    <div class="action-icon">🔀</div>
+                    <div class="action-label">Intercept Traffic</div>
+                </a>
+                <a href="{% url 'burp:scanner' %}" class="action-btn">
+                    <div class="action-icon">🔍</div>
+                    <div class="action-label">New Scan</div>
+                </a>
+                <a href="{% url 'burp:repeater' %}" class="action-btn">
+                    <div class="action-icon">🔁</div>
+                    <div class="action-label">Repeater</div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

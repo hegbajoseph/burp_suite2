@@ -1,0 +1,97 @@
+{% extends "burp/base.html" %}
+{% block title %}Scan #{{ target.id }} — BurpSuite Django{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">◎ <span>Scan #{{ target.id }}</span></div>
+    <div class="page-subtitle">{{ target.url }}</div>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'burp:scanner' %}" class="btn btn-ghost">← Retour</a>
+    <button class="btn btn-danger" onclick="deleteScan({{ target.id }})">🗑 Supprimer</button>
+  </div>
+</div>
+<div class="content-area">
+  <!-- SUMMARY -->
+  <div class="grid-4" style="margin-bottom:16px;">
+    {% for sc in severity_counts %}
+    <div class="stat-card" style="--accent-color: {% if sc.severity == 'high' %}#ff3d5a{% elif sc.severity == 'medium' %}#ffd23f{% elif sc.severity == 'low' %}#4cc9f0{% else %}#a855f7{% endif %};">
+      <div class="stat-label">{{ sc.severity|upper }}</div>
+      <div class="stat-value" style="color: {% if sc.severity == 'high' %}#ff3d5a{% elif sc.severity == 'medium' %}#ffd23f{% elif sc.severity == 'low' %}#4cc9f0{% else %}#a855f7{% endif %};">{{ sc.count }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ISSUES TABLE -->
+  <div class="card">
+    <div class="card-header">⚠ Vulnérabilités détectées ({{ results.count }})</div>
+    <table class="data-table">
+      <thead><tr><th>Sévérité</th><th>Type</th><th>URL</th><th>Paramètre</th><th>Confiance</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for result in results %}
+        <tr onclick="showIssue({{ result.id }})" style="cursor:pointer;"
+            data-desc="{{ result.description|escapejs }}"
+            data-req="{{ result.request_data|escapejs }}"
+            data-resp="{{ result.response_data|escapejs }}"
+            data-remediation="{{ result.remediation|escapejs }}"
+            data-evidence="{{ result.evidence|escapejs }}">
+          <td><span class="badge badge-{{ result.severity }}">{{ result.severity }}</span></td>
+          <td style="color:var(--text-primary);font-weight:500;">{{ result.issue_type }}</td>
+          <td style="color:var(--accent-blue);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ result.url }}</td>
+          <td style="color:var(--text-secondary);">{{ result.parameter|default:"–" }}</td>
+          <td style="color:var(--text-muted);">{{ result.confidence }}</td>
+          <td style="color:var(--text-muted);">{{ result.discovered_at|date:"H:i:s" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">Aucune issue détectée</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div class="card" id="issue-detail" style="margin-top:16px;display:none;">
+    <div class="card-header">◈ Détail de la vulnérabilité</div>
+    <div class="card-body">
+      <div class="grid-2" style="gap:16px;">
+        <div>
+          <div class="form-group"><label class="form-label">Description</label>
+            <div id="d-desc" style="padding:10px;background:var(--bg-panel);border-radius:6px;font-size:12px;color:var(--text-secondary);line-height:1.6;"></div></div>
+          <div class="form-group"><label class="form-label">Evidence</label>
+            <pre id="d-evidence" style="padding:10px;background:var(--bg-deep);border-radius:6px;font-size:11px;color:var(--accent-orange);overflow:auto;"></pre></div>
+          <div class="form-group"><label class="form-label">Remédiation</label>
+            <div id="d-remediation" style="padding:10px;background:rgba(6,214,160,0.05);border:1px solid rgba(6,214,160,0.2);border-radius:6px;font-size:12px;color:#06d6a0;line-height:1.6;"></div></div>
+        </div>
+        <div>
+          <div class="form-group"><label class="form-label">Requête</label>
+            <pre id="d-req" style="padding:10px;background:var(--bg-deep);border-radius:6px;font-size:11px;color:var(--text-secondary);overflow:auto;max-height:150px;line-height:1.6;"></pre></div>
+          <div class="form-group"><label class="form-label">Réponse</label>
+            <pre id="d-resp" style="padding:10px;background:var(--bg-deep);border-radius:6px;font-size:11px;color:var(--text-secondary);overflow:auto;max-height:150px;line-height:1.6;"></pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function showIssue(id) {
+  const row = document.querySelector(`[onclick="showIssue(${id})"]`);
+  document.querySelectorAll('tbody tr').forEach(r => r.style.background='');
+  row.style.background = 'var(--bg-hover)';
+  document.getElementById('d-desc').textContent = row.dataset.desc;
+  document.getElementById('d-evidence').textContent = row.dataset.evidence;
+  document.getElementById('d-remediation').textContent = row.dataset.remediation;
+  document.getElementById('d-req').textContent = row.dataset.req;
+  document.getElementById('d-resp').textContent = row.dataset.resp;
+  document.getElementById('issue-detail').style.display = 'block';
+  document.getElementById('issue-detail').scrollIntoView({behavior:'smooth'});
+}
+
+async function deleteScan(id) {
+  if (!confirm('Supprimer ce scan et toutes ses issues ?')) return;
+  await fetch(`/scanner/${id}/delete/`, {method:'DELETE'});
+  location.href = '/scanner/';
+}
+</script>
+{% endblock %}

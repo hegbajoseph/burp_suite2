@@ -1,0 +1,377 @@
+{% extends "burp/base.html" %}
+{% block active_tab %}intruder{% endblock %}
+{% block content %}
+
+<div class="sub-tabs">
+    <div class="sub-tab active" id="intruder-subtab-positions" onclick="switchIntruderTab('positions')">Positions</div>
+    <div class="sub-tab" id="intruder-subtab-payloads" onclick="switchIntruderTab('payloads')">Payloads</div>
+    <div class="sub-tab" id="intruder-subtab-settings" onclick="switchIntruderTab('settings')">Settings</div>
+</div>
+
+<div class="action-bar">
+    <button class="btn btn-orange" onclick="startAttack()">▶ Start attack</button>
+    <span style="margin-left:12px;font-size:11px;color:var(--text-secondary)">
+        Target: <strong style="color:var(--text-primary)">{{ target_host|default:"No target set" }}</strong>
+    </span>
+    <span style="margin-left:16px;font-size:11px;color:var(--text-secondary)">Attack type:</span>
+    <select class="form-select" id="attack-type" style="margin-left:4px">
+        <option value="sniper">Sniper</option>
+        <option value="battering_ram">Battering ram</option>
+        <option value="pitchfork">Pitchfork</option>
+        <option value="cluster_bomb">Cluster bomb</option>
+    </select>
+    <span style="margin-left:auto;font-size:11px;color:var(--text-muted)" id="position-count">
+        {{ position_count|default:"0" }} payload positions
+    </span>
+</div>
+
+<!-- POSITIONS TAB -->
+<div id="intruder-positions" style="display:flex;flex:1;overflow:hidden;">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="panel-title-bar">
+            <span class="dot"></span>Request
+            <span style="margin-left:auto;display:flex;gap:6px">
+                <button class="btn btn-default" style="padding:2px 10px;font-size:10px" onclick="addPosition()">Add §</button>
+                <button class="btn btn-default" style="padding:2px 10px;font-size:10px" onclick="clearPositions()">Clear §</button>
+                <button class="btn btn-orange" style="padding:2px 10px;font-size:10px" onclick="autoPositions()">Auto §</button>
+            </span>
+        </div>
+        <div class="code-editor" id="positions-editor" contenteditable="true" spellcheck="false" style="flex:1;outline:none;cursor:text;font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:8px 0">
+            {% if request_template %}
+                {% for line in request_template.lines %}
+                <div class="code-line">
+                    <span class="line-number">{{ forloop.counter }}</span>
+                    <span class="{{ line.css_class }}">{{ line.content|safe }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="code-line"><span class="line-number">1</span><span class="http-method">POST</span> <span class="http-path">/api/login</span> <span class="http-version">HTTP/1.1</span></div>
+                <div class="code-line"><span class="line-number">2</span><span class="http-header-name">Host: </span><span class="http-host">192.168.56.102</span></div>
+                <div class="code-line"><span class="line-number">3</span><span class="http-header-name">Content-Type: </span><span class="http-header-value">application/json</span></div>
+                <div class="code-line"><span class="line-number">4</span><span class="http-header-name">Content-Length: </span><span class="http-header-value">42</span></div>
+                <div class="code-line"><span class="line-number">5</span></div>
+                <div class="code-line"><span class="line-number">6</span><span class="http-body">{"username": "</span><span style="background:#e8510a;color:white;padding:0 2px;border-radius:2px">§admin§</span><span class="http-body">", "password": "</span><span style="background:#e8510a;color:white;padding:0 2px;border-radius:2px">§password§</span><span class="http-body">"}</span></div>
+            {% endif %}
+        </div>
+    </div>
+    <div style="width:220px;border-left:1px solid var(--border);overflow:auto;padding:12px;flex-shrink:0">
+        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Attack Type</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="attack-type-card selected" onclick="selectAttack(this,'sniper')">
+                <div class="attack-type-name">Sniper</div>
+                <div class="attack-type-desc">Single payload set, one position at a time</div>
+            </div>
+            <div class="attack-type-card" onclick="selectAttack(this,'battering_ram')">
+                <div class="attack-type-name">Battering ram</div>
+                <div class="attack-type-desc">Single payload set, all positions simultaneously</div>
+            </div>
+            <div class="attack-type-card" onclick="selectAttack(this,'pitchfork')">
+                <div class="attack-type-name">Pitchfork</div>
+                <div class="attack-type-desc">Multiple payload sets, one per position</div>
+            </div>
+            <div class="attack-type-card" onclick="selectAttack(this,'cluster_bomb')">
+                <div class="attack-type-name">Cluster bomb</div>
+                <div class="attack-type-desc">Multiple sets, all combinations</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PAYLOADS TAB -->
+<div id="intruder-payloads" style="display:none;flex:1;overflow:auto;padding:16px;">
+    <div class="config-section" style="margin-bottom:16px">
+        <div class="config-section-title">📦 Payload Sets</div>
+        <div class="config-section-body">
+            <div class="form-row">
+                <span class="form-label">Payload set:</span>
+                <select class="form-select" id="payload-set">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <span class="form-label">Payload type:</span>
+                <select class="form-select" id="payload-type" onchange="updatePayloadOptions()">
+                    <option value="simple_list">Simple list</option>
+                    <option value="runtime_file">Runtime file</option>
+                    <option value="custom_iterator">Custom iterator</option>
+                    <option value="character_frobber">Character frobber</option>
+                    <option value="bit_flipper">Bit flipper</option>
+                    <option value="username_generator">Username generator</option>
+                    <option value="null_payloads">Null payloads</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-section" style="margin-bottom:16px">
+        <div class="config-section-title">📋 Payload Options [Simple list]</div>
+        <div class="config-section-body">
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+                <input class="form-input" id="new-payload" placeholder="Enter payload..." style="flex:1" onkeypress="if(event.key==='Enter')addPayload()">
+                <button class="btn btn-orange" onclick="addPayload()">Add</button>
+            </div>
+            <div id="payload-list" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:3px;height:180px;overflow:auto;padding:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-primary)">
+                {% for p in payloads %}
+                <div class="payload-item" onclick="selectPayload(this)" style="padding:1px 4px;cursor:pointer;border-radius:2px">{{ p.value }}</div>
+                {% empty %}
+                <span style="color:var(--text-muted)">admin<br>administrator<br>root<br>user<br>test<br>guest</span>
+                {% endfor %}
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px" id="payload-count">
+                {{ payloads.count|default:"6" }} payloads
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-default" onclick="loadWordlist()">Load...</button>
+                <button class="btn btn-default" onclick="removePayload()">Remove</button>
+                <button class="btn btn-default" onclick="clearPayloads()">Clear</button>
+                <button class="btn btn-default">Deduplicate</button>
+                <button class="btn btn-default" onclick="pastePayloads()">Paste</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-section">
+        <div class="config-section-title">🔧 Payload Processing</div>
+        <div class="config-section-body">
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+                <button class="btn btn-default">Add rule</button>
+                <button class="btn btn-default">Edit</button>
+                <button class="btn btn-default">Remove</button>
+            </div>
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:3px;padding:12px;font-size:11px;color:var(--text-muted)">
+                No processing rules defined
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div id="intruder-settings" style="display:none;flex:1;overflow:auto;padding:16px;">
+    <div class="config-section" style="margin-bottom:16px">
+        <div class="config-section-title">⚙️ Request Engine</div>
+        <div class="config-section-body">
+            <div class="form-row">
+                <span class="form-label">Number of threads:</span>
+                <input class="form-input" id="threads" value="{{ settings.threads|default:'1' }}" style="width:60px;flex:none" type="number" min="1" max="20">
+            </div>
+            <div class="form-row">
+                <span class="form-label">Retries on network failure:</span>
+                <input class="form-input" value="{{ settings.retries|default:'3' }}" style="width:60px;flex:none" type="number">
+            </div>
+            <div class="form-row">
+                <span class="form-label">Pause before retry (ms):</span>
+                <input class="form-input" value="{{ settings.pause_before_retry|default:'2000' }}" style="width:80px;flex:none" type="number">
+            </div>
+            <div class="form-row">
+                <span class="form-label">Throttle between requests (ms):</span>
+                <input class="form-input" value="{{ settings.throttle|default:'0' }}" style="width:80px;flex:none" type="number">
+            </div>
+        </div>
+    </div>
+
+    <div class="config-section">
+        <div class="config-section-title"> Attack Results</div>
+        <div class="config-section-body">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:11.5px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" checked style="accent-color:var(--orange)"> Store requests
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" checked style="accent-color:var(--orange)"> Store responses
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" style="accent-color:var(--orange)"> Make unmodified baseline request
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attack Results Modal -->
+<div id="attack-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#252526;border:1px solid #5a5a5a;border-radius:6px;width:85vw;height:80vh;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.6);display:flex;flex-direction:column">
+        <div style="background:#e8510a;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <span style="font-weight:700;font-size:13px;color:white"> Intruder Attack Results</span>
+            <div style="display:flex;gap:8px;align-items:center">
+                <span style="font-size:11px;color:rgba(255,255,255,0.8)" id="attack-progress">Running...</span>
+                <button class="btn btn-default" style="padding:2px 10px;font-size:10px">Pause</button>
+                <span style="cursor:pointer;color:rgba(255,255,255,0.8);font-size:18px;margin-left:8px" onclick="closeAttackModal()">✕</span>
+            </div>
+        </div>
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+            <div class="toolbar" style="flex-shrink:0">
+                <span class="filter-badge">Results: <span id="result-count">0</span></span>
+                <input class="search-input" placeholder="Search results..." style="margin-left:8px">
+            </div>
+            <div class="table-container" style="flex:1">
+                <table>
+                    <thead><tr><th>#</th><th>Payload</th><th>Status</th><th>Error</th><th>Timeout</th><th>Length</th><th>Comment</th></tr></thead>
+                    <tbody id="attack-results-tbody">
+                        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">Attack in progress...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchIntruderTab(tab) {
+    ['positions','payloads','settings'].forEach(t => {
+        document.getElementById(`intruder-subtab-${t}`).classList.remove('active');
+        const el = document.getElementById(`intruder-${t}`);
+        el.style.display = 'none';
+    });
+    document.getElementById(`intruder-subtab-${tab}`).classList.add('active');
+    const active = document.getElementById(`intruder-${tab}`);
+    active.style.display = 'flex';
+    active.style.flexDirection = 'column';
+    active.style.flex = '1';
+    active.style.overflow = tab === 'positions' ? 'hidden' : 'auto';
+}
+
+function selectAttack(card, type) {
+    document.querySelectorAll('.attack-type-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    document.getElementById('attack-type').value = type;
+}
+
+function addPayload() {
+    const input = document.getElementById('new-payload');
+    const val = input.value.trim();
+    if (!val) return;
+    const list = document.getElementById('payload-list');
+    const div = document.createElement('div');
+    div.className = 'payload-item';
+    div.style = 'padding:1px 4px;cursor:pointer;border-radius:2px';
+    div.textContent = val;
+    div.onclick = () => selectPayload(div);
+    list.appendChild(div);
+    input.value = '';
+    
+    // POST to backend
+    fetch('{% url "burp:add_payload" %}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'},
+        body: JSON.stringify({value: val})
+    });
+}
+
+let selectedPayload = null;
+function selectPayload(el) {
+    document.querySelectorAll('.payload-item').forEach(p => p.style.background = '');
+    el.style.background = '#094771';
+    selectedPayload = el;
+}
+
+function removePayload() {
+    if (selectedPayload) selectedPayload.remove();
+}
+
+function clearPayloads() {
+    if (confirm('Clear all payloads?')) document.getElementById('payload-list').innerHTML = '';
+}
+
+function pastePayloads() {
+    navigator.clipboard.readText().then(text => {
+        text.split('\n').filter(l => l.trim()).forEach(line => {
+            const list = document.getElementById('payload-list');
+            const div = document.createElement('div');
+            div.className = 'payload-item';
+            div.style = 'padding:1px 4px;cursor:pointer;border-radius:2px';
+            div.textContent = line.trim();
+            div.onclick = () => selectPayload(div);
+            list.appendChild(div);
+        });
+    });
+}
+
+function loadWordlist() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = ev => {
+            ev.target.result.split('\n').filter(l => l.trim()).forEach(line => {
+                const list = document.getElementById('payload-list');
+                const div = document.createElement('div');
+                div.className = 'payload-item';
+                div.style = 'padding:1px 4px;cursor:pointer;border-radius:2px';
+                div.textContent = line.trim();
+                div.onclick = () => selectPayload(div);
+                list.appendChild(div);
+            });
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+function addPosition() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const marker = document.createElement('span');
+    marker.style = 'background:#e8510a;color:white;padding:0 2px;border-radius:2px';
+    marker.textContent = '§§';
+    range.insertNode(marker);
+}
+
+function clearPositions() {
+    document.querySelectorAll('#positions-editor [style*="e8510a"]').forEach(el => {
+        el.replaceWith(document.createTextNode(el.textContent.replace(/§/g, '')));
+    });
+}
+
+function autoPositions() {
+    alert('Auto-detect: Would highlight parameter values, cookie values, and form fields automatically.');
+}
+
+function startAttack() {
+    document.getElementById('attack-modal').style.display = 'flex';
+    
+    // Simulate attack results
+    let count = 0;
+    const tbody = document.getElementById('attack-results-tbody');
+    tbody.innerHTML = '';
+    
+    const payloads = [...document.querySelectorAll('.payload-item')].map(el => el.textContent);
+    if (payloads.length === 0) {
+        payloads.push('admin','administrator','root','user','test','guest');
+    }
+    
+    const interval = setInterval(() => {
+        if (count >= payloads.length) {
+            clearInterval(interval);
+            document.getElementById('attack-progress').textContent = `Finished — ${count} requests`;
+            return;
+        }
+        const payload = payloads[count];
+        const status = [200, 401, 403, 500][Math.floor(Math.random() * 4)];
+        const length = Math.floor(Math.random() * 3000) + 200;
+        const tr = document.createElement('tr');
+        tr.onclick = () => { document.querySelectorAll('#attack-results-tbody tr').forEach(r => r.classList.remove('selected')); tr.classList.add('selected'); };
+        if (status === 200 && count > 0) tr.style.fontWeight = '700';
+        tr.innerHTML = `
+            <td>${count+1}</td>
+            <td style="color:#ce9178">${payload}</td>
+            <td class="status-${status}">${status}</td>
+            <td>—</td>
+            <td>—</td>
+            <td>${length}</td>
+            <td></td>`;
+        tbody.appendChild(tr);
+        count++;
+        document.getElementById('result-count').textContent = count;
+        document.getElementById('attack-progress').textContent = `Running — ${count}/${payloads.length}`;
+    }, 300);
+}
+
+function closeAttackModal() {
+    document.getElementById('attack-modal').style.display = 'none';
+}
+</script>
+{% endblock %}

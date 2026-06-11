@@ -1,0 +1,218 @@
+{% extends "burp/base.html" %}
+{% block title %}Decoder — BurpSuite Django{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><div class="page-title">⊕ <span>Decoder</span></div><div class="page-subtitle">Encodage / décodage et hachage de données</div></div>
+</div>
+<div class="content-area">
+  <div class="grid-2" style="gap: 16px;">
+    <div class="card">
+      <div class="card-header">⊕ Entrée</div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Données</label>
+          <textarea id="d-input" class="textarea" style="min-height: 120px; font-size: 12px;" placeholder="Entrez vos données ici..."></textarea>
+        </div>
+        <div class="grid-2" style="gap: 10px; margin-bottom: 12px;">
+          <div>
+            <label class="form-label">Type d'encodage</label>
+            <select id="d-encoding" class="select">
+              <option value="base64">Base64</option>
+              <option value="url">URL Encode</option>
+              <option value="html">HTML Encode</option>
+              <option value="hex">Hexadécimal</option>
+              <option value="binary">Binaire</option>
+              <option value="md5">MD5 (hash)</option>
+              <option value="sha256">SHA-256 (hash)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Opération</label>
+            <select id="d-operation" class="select">
+              <option value="encode">Encoder</option>
+              <option value="decode">Décoder</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-primary" style="flex:1;" onclick="processData()">▶ Traiter</button>
+          <button class="btn btn-ghost" onclick="swapData()">⇌ Échanger</button>
+          <button class="btn btn-ghost" onclick="clearAll()">✕ Effacer</button>
+        </div>
+
+        <!-- CHAINED ENCODING -->
+        <div style="margin-top: 16px; padding: 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border);">
+          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px;">Encodage en chaîne</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn btn-ghost" style="font-size: 10px; padding: 4px 8px;" onclick="addChain('base64','encode')">+B64</button>
+            <button class="btn btn-ghost" style="font-size: 10px; padding: 4px 8px;" onclick="addChain('url','encode')">+URL</button>
+            <button class="btn btn-ghost" style="font-size: 10px; padding: 4px 8px;" onclick="addChain('html','encode')">+HTML</button>
+            <button class="btn btn-ghost" style="font-size: 10px; padding: 4px 8px;" onclick="addChain('hex','encode')">+Hex</button>
+            <button class="btn btn-danger" style="font-size: 10px; padding: 4px 8px;" onclick="runChain()">▶ Chaîne</button>
+          </div>
+          <div id="chain-steps" style="margin-top: 6px; font-size: 10px; color: var(--text-muted);"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">← Résultat</div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Sortie</label>
+          <textarea id="d-output" class="textarea" style="min-height: 120px; font-size: 12px;" readonly placeholder="Le résultat apparaîtra ici..."></textarea>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <button class="btn btn-ghost" style="flex:1;" onclick="copyOutput()">⎘ Copier</button>
+          <button class="btn btn-ghost" style="flex:1;" onclick="outputToInput()">↑ Vers entrée</button>
+        </div>
+
+        <!-- QUICK ACTIONS -->
+        <div style="padding: 12px; background: var(--bg-panel); border-radius: 6px; border: 1px solid var(--border);">
+          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px;">Décodage auto-détecté</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn btn-ghost" style="font-size: 10px; padding: 4px 8px;" onclick="autoDetect()">🔍 Auto-détecter</button>
+            <button class="btn btn-ghost" style="font-size: 10px; padding: 4px 8px;" onclick="decodeAll()">◈ Tout décoder</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="card" style="margin-top: 16px;">
+    <div class="card-header">◎ Historique</div>
+    <table class="data-table">
+      <thead><tr><th>Encodage</th><th>Opération</th><th>Entrée</th><th>Sortie</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for item in history %}
+        <tr style="cursor:pointer;" onclick="loadHistory('{{ item.input_data|escapejs }}','{{ item.encoding_type }}','{{ item.operation }}')">
+          <td><span class="badge badge-info">{{ item.encoding_type }}</span></td>
+          <td style="color:var(--text-secondary);">{{ item.operation }}</td>
+          <td style="color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.input_data|truncatechars:40 }}</td>
+          <td style="color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.output_data|truncatechars:40 }}</td>
+          <td style="color:var(--text-muted);">{{ item.created_at|date:"H:i:s" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Aucun historique</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+let chainSteps = [];
+
+async function processData() {
+  const input = document.getElementById('d-input').value;
+  const encoding = document.getElementById('d-encoding').value;
+  const operation = document.getElementById('d-operation').value;
+  if (!input) { toast('Données requises', 'error'); return; }
+
+  const r = await fetch('/decoder/encode/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ input, encoding, operation })
+  });
+  const d = await r.json();
+  if (d.success) {
+    document.getElementById('d-output').value = d.output;
+    toast('Traitement réussi', 'success');
+  } else {
+    toast('Erreur: ' + d.error, 'error');
+  }
+}
+
+function swapData() {
+  const input = document.getElementById('d-input');
+  const output = document.getElementById('d-output');
+  const tmp = input.value;
+  input.value = output.value;
+  output.value = tmp;
+}
+
+function clearAll() {
+  document.getElementById('d-input').value = '';
+  document.getElementById('d-output').value = '';
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(document.getElementById('d-output').value);
+  toast('Copié!', 'success');
+}
+
+function outputToInput() {
+  document.getElementById('d-input').value = document.getElementById('d-output').value;
+  document.getElementById('d-output').value = '';
+}
+
+function addChain(encoding, operation) {
+  chainSteps.push({ encoding, operation });
+  document.getElementById('chain-steps').textContent =
+    chainSteps.map((s, i) => `${i+1}. ${s.operation} (${s.encoding})`).join(' → ');
+}
+
+async function runChain() {
+  let current = document.getElementById('d-input').value;
+  for (const step of chainSteps) {
+    const r = await fetch('/decoder/encode/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ input: current, encoding: step.encoding, operation: step.operation })
+    });
+    const d = await r.json();
+    if (!d.success) { toast('Erreur chaîne: ' + d.error, 'error'); return; }
+    current = d.output;
+  }
+  document.getElementById('d-output').value = current;
+  chainSteps = [];
+  document.getElementById('chain-steps').textContent = '';
+  toast('Chaîne appliquée', 'success');
+}
+
+function autoDetect() {
+  const input = document.getElementById('d-input').value;
+  let detected = 'unknown';
+  if (/^[A-Za-z0-9+/]+=*$/.test(input) && input.length % 4 === 0) detected = 'base64';
+  else if (/%[0-9A-Fa-f]{2}/.test(input)) detected = 'url';
+  else if (/&amp;|&lt;|&gt;|&quot;/.test(input)) detected = 'html';
+  else if (/^[0-9A-Fa-f\s]+$/.test(input)) detected = 'hex';
+  else if (/^[01\s]+$/.test(input)) detected = 'binary';
+
+  if (detected !== 'unknown') {
+    document.getElementById('d-encoding').value = detected;
+    document.getElementById('d-operation').value = 'decode';
+    toast(`Détecté: ${detected}`, 'success');
+  } else {
+    toast('Format non reconnu', 'warning');
+  }
+}
+
+async function decodeAll() {
+  const input = document.getElementById('d-input').value;
+  const types = ['base64', 'url', 'html', 'hex'];
+  let results = [];
+  for (const enc of types) {
+    try {
+      const r = await fetch('/decoder/encode/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ input, encoding: enc, operation: 'decode' })
+      });
+      const d = await r.json();
+      if (d.success && d.output !== input) results.push(`[${enc}]: ${d.output}`);
+    } catch(e) {}
+  }
+  document.getElementById('d-output').value = results.join('\n') || 'Aucun décodage applicable';
+}
+
+function loadHistory(input, encoding, operation) {
+  document.getElementById('d-input').value = input;
+  document.getElementById('d-encoding').value = encoding;
+  document.getElementById('d-operation').value = operation;
+  toast('Historique chargé', 'success');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,268 @@
+{% extends "burp/base.html" %}
+{% block active_tab %}repeater{% endblock %}
+{% block content %}
+
+<div class="sub-tabs" style="align-items:center;gap:0">
+    {% for tab in repeater_tabs %}
+    <div class="sub-tab {% if tab.active %}active{% endif %}" id="repeater-tab-{{ tab.id }}" onclick="switchRepeaterTab({{ tab.id }})">
+        {{ tab.name }}
+        <span onclick="closeTab(event, {{ tab.id }})" style="margin-left:6px;opacity:0.5;font-size:14px;line-height:1">×</span>
+    </div>
+    {% empty %}
+    <div class="sub-tab active" id="repeater-tab-1">1 <span style="margin-left:6px;opacity:0.5;font-size:14px;line-height:1">×</span></div>
+    {% endfor %}
+    <div class="sub-tab" style="padding:0 14px;color:var(--orange);font-size:16px;cursor:pointer;flex-shrink:0" onclick="newRepeaterTab()">+</div>
+</div>
+
+<div class="action-bar">
+    <button class="btn btn-orange" id="send-btn" onclick="sendRequest()">▶ Send</button>
+    <button class="btn btn-default" onclick="goHistory(-1)">◀</button>
+    <button class="btn btn-default" onclick="goHistory(1)">▶</button>
+    <span style="font-size:11px;color:var(--text-secondary);margin-left:8px">
+        Target: <strong style="color:var(--text-primary)" id="target-display">{{ target_host|default:"https://192.168.56.102" }}</strong>
+        <span style="color:var(--text-muted);margin-left:6px">HTTPS</span>
+    </span>
+    <button class="btn btn-default" style="margin-left:auto">⚙️ Settings</button>
+    <button class="btn btn-default">Inspector</button>
+</div>
+
+<div class="repeater-layout">
+    <!-- Request Panel -->
+    <div class="repeater-req">
+        <div class="panel-title-bar">
+            <span class="dot"></span>Request
+            <span style="margin-left:auto;display:flex;gap:4px">
+                <button class="btn btn-default" style="padding:2px 8px;font-size:10px" onclick="switchReqView('pretty')">Pretty</button>
+                <button class="btn btn-default" style="padding:2px 8px;font-size:10px" onclick="switchReqView('raw')">Raw</button>
+                <button class="btn btn-default" style="padding:2px 8px;font-size:10px" onclick="switchReqView('hex')">Hex</button>
+            </span>
+        </div>
+        <div class="code-editor" id="request-editor" contenteditable="true" spellcheck="false" style="flex:1;outline:none;cursor:text">
+            {% if repeater_request %}
+                {% for line in repeater_request.lines %}
+                <div class="code-line">
+                    <span class="line-number">{{ forloop.counter }}</span>
+                    <span class="{{ line.css_class }}">{{ line.content }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="code-line"><span class="line-number">1</span><span class="http-method">GET</span> <span class="http-path">/api/users</span> <span class="http-version">HTTP/1.1</span></div>
+            <div class="code-line"><span class="line-number">2</span><span class="http-header-name">Host: </span><span class="http-host">192.168.56.102</span></div>
+            <div class="code-line"><span class="line-number">3</span><span class="http-header-name">Authorization: </span><span class="http-header-value">Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9</span></div>
+            <div class="code-line"><span class="line-number">4</span><span class="http-header-name">Accept: </span><span class="http-header-value">application/json</span></div>
+            <div class="code-line"><span class="line-number">5</span><span class="http-header-name">Connection: </span><span class="http-header-value">close</span></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Response Panel -->
+    <div class="repeater-res">
+        <div class="panel-title-bar">
+            <span class="dot" style="background:#4ec9b0"></span>Response
+            <span style="margin-left:auto;font-size:10px;color:var(--text-muted)" id="response-meta">—</span>
+        </div>
+        <div class="sub-tabs" style="height:28px;border-bottom:1px solid var(--border)">
+            <div class="sub-tab active" style="height:28px;font-size:10.5px" onclick="switchResView('pretty',this)">Pretty</div>
+            <div class="sub-tab" style="height:28px;font-size:10.5px" onclick="switchResView('raw',this)">Raw</div>
+            <div class="sub-tab" style="height:28px;font-size:10.5px" onclick="switchResView('hex',this)">Hex</div>
+            <div class="sub-tab" style="height:28px;font-size:10.5px" onclick="switchResView('render',this)">Render</div>
+        </div>
+        <div class="code-editor" id="response-editor" style="flex:1">
+            {% if repeater_response %}
+                {% for line in repeater_response.lines %}
+                <div class="code-line">
+                    <span class="line-number">{{ forloop.counter }}</span>
+                    <span class="{{ line.css_class }}">{{ line.content }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;opacity:0.4">
+                <svg viewBox="0 0 60 60" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="30" cy="30" r="28" fill="none" stroke="#888" stroke-width="2"/>
+                    <path d="M20 30 L40 30 M32 22 L40 30 L32 38" stroke="#888" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div style="font-size:12px;color:var(--text-muted)">Click Send to get a response</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="sending-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center;pointer-events:all">
+    <div style="background:#252526;border:1px solid var(--border);border-radius:6px;padding:20px 32px;text-align:center">
+        <div style="font-size:13px;color:var(--text-primary);margin-bottom:8px">Sending request...</div>
+        <div style="width:200px;height:3px;background:var(--bg-tertiary);border-radius:2px;overflow:hidden">
+            <div id="progress-bar" style="height:100%;background:var(--orange);width:0%;transition:width 0.3s;border-radius:2px"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+var tabCount = 1;
+var historyStack = [];
+var historyIndex = -1;
+
+// ✅ CORRECTION : URL avec namespace burp:
+var SEND_URL = "{% url 'burp:send_repeater' %}";
+
+function getCsrfToken() {
+    for (var c of document.cookie.split(';')) {
+        c = c.trim();
+        if (c.startsWith('csrftoken=')) return decodeURIComponent(c.substring(10));
+    }
+    return '{{ csrf_token }}';
+}
+
+function sendRequest() {
+    var overlay = document.getElementById('sending-overlay');
+    overlay.style.display = 'flex';
+
+    var startTime = Date.now();
+    var editor = document.getElementById('request-editor');
+    var rawRequest = editor.innerText;
+
+    var progress = 0;
+    var progressBar = document.getElementById('progress-bar');
+    var progressInterval = setInterval(function() {
+        progress = Math.min(progress + 15, 90);
+        progressBar.style.width = progress + '%';
+    }, 100);
+
+    // Parse la requête brute pour extraire method, url, headers, body
+    var lines = rawRequest.split('\n');
+    var firstLine = lines[0].trim().split(' ');
+    var method = firstLine[0] || 'GET';
+    var path = firstLine[1] || '/';
+
+    var headers = {};
+    var bodyStart = -1;
+    var host = '';
+    for (var i = 1; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line === '') { bodyStart = i + 1; break; }
+        var colonIdx = line.indexOf(':');
+        if (colonIdx > 0) {
+            var hname = line.substring(0, colonIdx).trim();
+            var hval = line.substring(colonIdx + 1).trim();
+            headers[hname] = hval;
+            if (hname.toLowerCase() === 'host') host = hval;
+        }
+    }
+    var body = bodyStart > 0 ? lines.slice(bodyStart).join('\n') : '';
+    var url = 'https://' + host + path;
+
+    fetch(SEND_URL, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            method: method,
+            url: url,
+            headers: headers,
+            body: body
+        })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        setTimeout(function() {
+            overlay.style.display = 'none';
+            progressBar.style.width = '0%';
+        }, 200);
+
+        var elapsed = Date.now() - startTime;
+        document.getElementById('response-meta').textContent =
+            'Length: ' + (data.response_body ? data.response_body.length : 0) + ' bytes | Time: ' + elapsed + 'ms';
+
+        var responseText = 'HTTP/1.1 ' + (data.response_status || '200 OK') + '\n';
+        if (data.response_headers) {
+            Object.entries(data.response_headers).forEach(function(e) {
+                responseText += e[0] + ': ' + e[1] + '\n';
+            });
+        }
+        responseText += '\n' + (data.response_body || '');
+        renderResponse(responseText);
+
+        historyStack.push(rawRequest);
+        historyIndex = historyStack.length - 1;
+    })
+    .catch(function(err) {
+        clearInterval(progressInterval);
+        overlay.style.display = 'none';
+        renderResponse('Error: Could not connect to target\n' + err.message);
+    });
+}
+
+function renderResponse(text) {
+    var editor = document.getElementById('response-editor');
+    var lines = text.split('\n');
+    var inHeaders = true;
+    editor.innerHTML = lines.map(function(line, i) {
+        if (line.trim() === '') inHeaders = false;
+        var cls = 'http-header-value';
+        if (i === 0) {
+            return '<div class="code-line"><span class="line-number">' + (i+1) + '</span><span class="http-version">' + escHtml(line) + '</span></div>';
+        } else if (inHeaders && line.includes(':')) {
+            var colonIdx = line.indexOf(':');
+            var name = line.substring(0, colonIdx);
+            var val = line.substring(colonIdx + 1);
+            return '<div class="code-line"><span class="line-number">' + (i+1) + '</span><span class="http-header-name">' + escHtml(name) + ': </span><span class="http-header-value">' + escHtml(val) + '</span></div>';
+        } else {
+            cls = inHeaders ? 'http-header-value' : 'http-body';
+            return '<div class="code-line"><span class="line-number">' + (i+1) + '</span><span class="' + cls + '">' + escHtml(line) + '</span></div>';
+        }
+    }).join('');
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function goHistory(dir) {
+    historyIndex = Math.max(0, Math.min(historyStack.length - 1, historyIndex + dir));
+    if (historyStack[historyIndex]) {
+        document.getElementById('request-editor').innerText = historyStack[historyIndex];
+    }
+}
+
+function newRepeaterTab() {
+    tabCount++;
+    var tabs = document.querySelector('.sub-tabs');
+    var addBtn = tabs.lastElementChild;
+    var newTab = document.createElement('div');
+    newTab.className = 'sub-tab';
+    newTab.id = 'repeater-tab-' + tabCount;
+    var id = tabCount;
+    newTab.onclick = function() { switchRepeaterTab(id); };
+    newTab.innerHTML = id + ' <span onclick="closeTab(event,' + id + ')" style="margin-left:6px;opacity:0.5;font-size:14px;line-height:1">×</span>';
+    tabs.insertBefore(newTab, addBtn);
+    switchRepeaterTab(tabCount);
+}
+
+function switchRepeaterTab(id) {
+    document.querySelectorAll('.sub-tabs .sub-tab').forEach(function(t) { t.classList.remove('active'); });
+    var tab = document.getElementById('repeater-tab-' + id);
+    if (tab) tab.classList.add('active');
+    document.getElementById('response-editor').innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;opacity:0.4"><div style="font-size:12px;color:var(--text-muted)">Click Send to get a response</div></div>';
+    document.getElementById('response-meta').textContent = '—';
+}
+
+function closeTab(e, id) {
+    e.stopPropagation();
+    var tab = document.getElementById('repeater-tab-' + id);
+    if (tab) tab.remove();
+}
+
+function switchReqView(view) {}
+
+function switchResView(view, el) {
+    document.querySelectorAll('.repeater-res .sub-tab').forEach(function(t) { t.classList.remove('active'); });
+    el.classList.add('active');
+}
+</script>
+{% endblock %}

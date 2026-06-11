@@ -1,0 +1,547 @@
+{% extends 'burp/base.html' %}
+{% block content %}
+
+<style>
+.proxy-tabs { display:flex; gap:0; border-bottom:2px solid #333; margin-bottom:0; background:#1a1a2e; }
+.proxy-tab { padding:10px 20px; cursor:pointer; font-size:13px; color:#888; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.2s; }
+.proxy-tab:hover { color:#ccc; }
+.proxy-tab.active { color:#ff6b35; border-bottom:2px solid #ff6b35; font-weight:600; }
+
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+.intercept-panel { background:#1a1a2e; min-height:calc(100vh - 120px); padding:0; }
+.intercept-toolbar { display:flex; align-items:center; gap:8px; padding:10px 16px; background:#16213e; border-bottom:1px solid #333; flex-wrap:wrap; }
+.btn-toolbar { padding:5px 14px; border:1px solid #555; border-radius:3px; cursor:pointer; font-size:12px; font-weight:600; background:#2a2a3e; color:#ccc; transition:all 0.15s; }
+.btn-toolbar:hover { background:#3a3a4e; color:#fff; }
+.btn-forward { background:#2ecc71; color:#000; border-color:#2ecc71; }
+.btn-forward:hover { background:#27ae60; }
+.btn-drop { background:#e74c3c; color:#fff; border-color:#e74c3c; }
+.btn-drop:hover { background:#c0392b; }
+.btn-intercept-on  { background:#ff6b35; color:#fff; border-color:#ff6b35; }
+.btn-intercept-off { background:#555; color:#ccc; border-color:#666; }
+.btn-open-browser { background:#3498db; color:#fff; border-color:#3498db; }
+.action-dropdown select { padding:5px 10px; border:1px solid #555; border-radius:3px; background:#2a2a3e; color:#ccc; font-size:12px; cursor:pointer; }
+
+.intercept-content { display:grid; grid-template-columns:1fr 1fr; height:calc(100vh - 170px); }
+.intercept-blocked { border-right:1px solid #333; overflow-y:auto; }
+.intercept-blocked-header { padding:8px 14px; background:#0f3460; font-size:12px; color:#ff6b35; font-weight:600; border-bottom:1px solid #333; }
+.blocked-item { padding:10px 14px; border-bottom:1px solid #222; cursor:pointer; transition:background 0.15s; }
+.blocked-item:hover { background:#252540; }
+.blocked-item.selected { background:#1a3a5c; border-left:3px solid #ff6b35; }
+.blocked-item .bi-method { font-weight:bold; font-size:11px; margin-right:8px; }
+.blocked-item .bi-url { font-size:12px; color:#ccc; }
+.blocked-item .bi-time { font-size:11px; color:#666; float:right; }
+
+.request-editor { display:flex; flex-direction:column; }
+.editor-tabs { display:flex; background:#0d0d1a; border-bottom:1px solid #333; }
+.editor-tab { padding:6px 14px; font-size:12px; color:#888; cursor:pointer; border-bottom:2px solid transparent; }
+.editor-tab.active { color:#ff6b35; border-bottom:2px solid #ff6b35; }
+.editor-area { flex:1; padding:12px; }
+.editor-area textarea { width:100%; height:100%; background:#0d0d1a; color:#ccc; border:none; font-family:'Courier New',monospace; font-size:12px; resize:none; outline:none; min-height:300px; }
+.no-blocked { display:flex; align-items:center; justify-content:center; height:200px; color:#555; font-size:13px; }
+
+.history-panel { padding:0; }
+.history-toolbar { display:flex; align-items:center; gap:10px; padding:10px 16px; background:#16213e; border-bottom:1px solid #333; flex-wrap:wrap; }
+.filter-input { background:#2a2a3e; border:1px solid #444; color:#e0e0e0; padding:5px 12px; border-radius:3px; width:220px; font-size:12px; }
+.method-select { background:#2a2a3e; border:1px solid #444; color:#e0e0e0; padding:5px; border-radius:3px; font-size:12px; }
+.req-count { color:#888; font-size:12px; margin-left:auto; }
+.table-wrapper { overflow-x:auto; }
+.proxy-table { width:100%; border-collapse:collapse; font-size:12px; }
+.proxy-table thead { background:#16213e; position:sticky; top:0; }
+.proxy-table th { padding:9px 12px; text-align:left; color:#ff6b35; font-weight:600; border-bottom:1px solid #333; white-space:nowrap; }
+.proxy-table td { padding:7px 12px; border-bottom:1px solid #1a1a2e; vertical-align:middle; }
+.proxy-table tbody tr:hover { background:#252540; cursor:pointer; }
+.proxy-table tbody tr.intercepted-row { background:#1a0a00; border-left:3px solid #ff6b35; }
+.method-get { color:#2ecc71; font-weight:bold; }
+.method-post { color:#f39c12; font-weight:bold; }
+.method-put { color:#3498db; font-weight:bold; }
+.method-delete { color:#e74c3c; font-weight:bold; }
+.status-2xx { color:#2ecc71; }
+.status-3xx { color:#f39c12; }
+.status-4xx { color:#e74c3c; }
+.status-5xx { color:#e74c3c; font-weight:bold; }
+.empty-msg { text-align:center; padding:40px; color:#555; }
+.btn-action { padding:2px 7px; border-radius:2px; border:none; cursor:pointer; font-size:11px; margin:0 1px; }
+.btn-eye { background:#3498db; color:#fff; }
+.btn-del { background:#e74c3c; color:#fff; }
+.badge-intercepted { background:#ff6b35; color:#fff; font-size:10px; padding:1px 5px; border-radius:2px; }
+
+.detail-panel { margin-top:0; background:#16213e; border-top:1px solid #333; }
+.detail-header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#0f3460; }
+.detail-header span { font-size:12px; color:#ccc; }
+.detail-body { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+.detail-section { padding:12px; border-right:1px solid #333; }
+.detail-section:last-child { border-right:none; }
+.detail-section h4 { color:#ff6b35; margin:0 0 8px 0; font-size:12px; }
+.detail-section pre { background:#0d0d1a; padding:10px; border-radius:3px; font-size:11px; color:#ccc; white-space:pre-wrap; max-height:250px; overflow-y:auto; margin:0; font-family:'Courier New',monospace; }
+.btn-close { background:none; border:none; color:#888; font-size:16px; cursor:pointer; }
+
+.settings-panel { padding:20px; }
+.settings-section { background:#16213e; border:1px solid #333; border-radius:6px; padding:16px; margin-bottom:16px; }
+.settings-section h3 { color:#ff6b35; margin:0 0 12px 0; font-size:14px; }
+.settings-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; font-size:13px; }
+.settings-row label { color:#ccc; width:200px; }
+.settings-row input[type=text], .settings-row input[type=number] { background:#2a2a3e; border:1px solid #444; color:#e0e0e0; padding:5px 10px; border-radius:3px; width:150px; font-size:12px; }
+.toggle-switch { position:relative; width:40px; height:20px; }
+.toggle-switch input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#555; border-radius:20px; transition:.3s; }
+.toggle-slider:before { position:absolute; content:""; height:14px; width:14px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; }
+input:checked + .toggle-slider { background:#ff6b35; }
+input:checked + .toggle-slider:before { transform:translateX(20px); }
+
+.proxy-status-bar { display:flex; align-items:center; gap:10px; padding:6px 16px; background:#0a0a1a; border-bottom:1px solid #222; font-size:11px; color:#666; }
+.proxy-dot { width:8px; height:8px; border-radius:50%; background:#e74c3c; display:inline-block; }
+.proxy-dot.active { background:#2ecc71; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+
+<div style="background:#1a1a2e; min-height:calc(100vh - 60px);">
+
+  <div class="proxy-status-bar">
+    <span class="proxy-dot" id="proxy-dot"></span>
+    <span id="proxy-status-text">Proxy HTTP inactif — configure le navigateur sur 127.0.0.1:8080</span>
+    <span style="margin-left:auto; color:#444;">| Port proxy: 8080 | Django: 8000</span>
+  </div>
+
+  <div class="proxy-tabs">
+    <button class="proxy-tab active" onclick="switchTab('intercept', this)">Intercept</button>
+    <button class="proxy-tab" onclick="switchTab('history', this)">HTTP history</button>
+    <button class="proxy-tab" onclick="switchTab('websockets', this)">WebSockets history</button>
+    <button class="proxy-tab" onclick="switchTab('settings', this)">Proxy settings</button>
+  </div>
+
+  <!-- TAB 1 : INTERCEPT -->
+  <div id="tab-intercept" class="tab-panel active intercept-panel">
+    <div class="intercept-toolbar">
+      <button class="btn-toolbar btn-forward" id="btn-forward" onclick="forwardBlocked()" disabled>Forward</button>
+      <button class="btn-toolbar btn-drop" id="btn-drop" onclick="dropBlocked()" disabled>Drop</button>
+      <button class="btn-toolbar btn-intercept-off" id="btn-intercept" onclick="toggleIntercept()">Intercept is off</button>
+      <div class="action-dropdown">
+        <select onchange="handleAction(this.value); this.value=''">
+          <option value="">Action ▾</option>
+          <option value="send_repeater">Send to Repeater</option>
+          <option value="send_intruder">Send to Intruder</option>
+          <option value="copy_url">Copy URL</option>
+          <option value="copy_request">Copy as curl</option>
+        </select>
+      </div>
+      <button class="btn-toolbar btn-open-browser" onclick="openBrowser()">Open browser</button>
+    </div>
+
+    <div class="intercept-content">
+      <div class="intercept-blocked">
+        <div class="intercept-blocked-header">🔴 Requêtes bloquées</div>
+        <div id="blocked-list">
+          <div class="no-blocked">Intercept est désactivé — clique sur "Intercept is off" pour activer</div>
+        </div>
+      </div>
+
+      <div class="request-editor">
+        <div class="editor-tabs">
+          <div class="editor-tab active" onclick="switchEditorTab(this, 'raw')">Raw</div>
+          <div class="editor-tab" onclick="switchEditorTab(this, 'headers')">Headers</div>
+          <div class="editor-tab" onclick="switchEditorTab(this, 'params')">Params</div>
+        </div>
+        <div class="editor-area">
+          <textarea id="request-editor-raw" placeholder="Sélectionne une requête bloquée pour l'éditer..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2 : HTTP HISTORY -->
+  <div id="tab-history" class="tab-panel history-panel">
+    <div class="history-toolbar">
+      <button class="btn-toolbar btn-drop" onclick="clearHistory()">🗑 Clear</button>
+      <input type="text" id="filter-input" placeholder="Filtrer par URL..." oninput="filterRequests()" class="filter-input">
+      <select id="method-filter" onchange="filterRequests()" class="method-select">
+        <option value="">Toutes méthodes</option>
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="DELETE">DELETE</option>
+      </select>
+      <select id="status-filter" onchange="filterRequests()" class="method-select">
+        <option value="">Tous status</option>
+        <option value="2">2xx</option>
+        <option value="3">3xx</option>
+        <option value="4">4xx</option>
+        <option value="5">5xx</option>
+      </select>
+      <span id="req-count" class="req-count">0 requête(s)</span>
+    </div>
+
+    <div class="table-wrapper">
+      <table class="proxy-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Méthode</th><th>URL</th><th>Status</th>
+            <th>Longueur</th><th>Temps</th><th>Heure</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="proxy-tbody">
+          <tr><td colspan="8" class="empty-msg">⏳ En attente de requêtes...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="detail-panel" class="detail-panel" style="display:none">
+      <div class="detail-header">
+        <span id="detail-title">Détails</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn-toolbar btn-forward" onclick="sendToRepeater(currentDetailId)" style="padding:3px 10px;font-size:11px;">→ Repeater</button>
+          <button class="btn-close" onclick="closeDetail()">✕</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-section">
+          <h4>📤 Requête</h4>
+          <pre id="detail-request"></pre>
+        </div>
+        <div class="detail-section">
+          <h4>📥 Réponse</h4>
+          <pre id="detail-response"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3 : WEBSOCKETS -->
+  <div id="tab-websockets" class="tab-panel" style="padding:40px;text-align:center;color:#555;">
+    <div style="font-size:48px;">🔌</div>
+    <div style="margin-top:16px;">Aucune connexion WebSocket détectée</div>
+  </div>
+
+  <!-- TAB 4 : PROXY SETTINGS -->
+  <div id="tab-settings" class="tab-panel settings-panel">
+    <div class="settings-section">
+      <h3>🔌 Proxy Listeners</h3>
+      <div class="settings-row">
+        <label>Interface d'écoute (proxy réel)</label>
+        <input type="text" value="127.0.0.1" readonly>
+        <span style="color:#888">:</span>
+        <input type="number" value="8080" readonly style="width:80px;">
+        <span class="badge-intercepted" id="listener-status">Vérifie...</span>
+      </div>
+      <div class="settings-row">
+        <label>Interface Django</label>
+        <input type="text" value="127.0.0.1" readonly>
+        <span style="color:#888">:</span>
+        <input type="number" value="8000" readonly style="width:80px;">
+        <span class="badge-intercepted" style="background:#2ecc71;">Running</span>
+      </div>
+      <div style="margin-top:10px; padding:10px; background:#0d0d1a; border-radius:4px; font-size:11px; color:#888;">
+        💡 Configure ton navigateur : Proxy HTTP → <strong style="color:#ff6b35;">127.0.0.1:8080</strong>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>⚙️ Intercept Options</h3>
+      <div class="settings-row">
+        <label>Intercepter les requêtes GET</label>
+        <label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <label>Intercepter les requêtes POST</label>
+        <label class="toggle-switch"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let allRequests = [];
+let interceptEnabled = false;
+let selectedBlockedId = null;
+let currentDetailId = null;
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+  document.querySelectorAll('.proxy-tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('tab-' + name);
+  panel.classList.add('active');
+  panel.style.display = 'block';
+  if (el) el.classList.add('active');
+  if (name === 'history') loadRequests();
+}
+
+function switchEditorTab(el, tabName) {
+  document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const raw = document.getElementById('request-editor-raw');
+  if (tabName === 'raw') {
+    if (selectedBlockedId) {
+      const r = allRequests.find(x => x.id === selectedBlockedId);
+      if (r) selectBlocked(r.id, r.method, r.url, r.request_body, r.request_headers);
+    } else {
+      raw.placeholder = "Sélectionne une requête bloquée pour l'éditer...";
+    }
+  } else if (tabName === 'headers') {
+    if (selectedBlockedId) {
+      const r = allRequests.find(x => x.id === selectedBlockedId);
+      if (r && r.request_headers) {
+        let txt = '';
+        Object.entries(r.request_headers).forEach(([k,v]) => { txt += k + ': ' + v + '\n'; });
+        raw.value = txt;
+      }
+    } else {
+      raw.value = '';
+      raw.placeholder = 'Sélectionne une requête pour voir ses headers...';
+    }
+  } else if (tabName === 'params') {
+    if (selectedBlockedId) {
+      const r = allRequests.find(x => x.id === selectedBlockedId);
+      if (r) {
+        let txt = '';
+        try {
+          const url = new URL(r.url);
+          url.searchParams.forEach((v,k) => { txt += k + ' = ' + v + '\n'; });
+        } catch(e) {}
+        if (r.request_body) txt += '\n[Body]\n' + r.request_body;
+        raw.value = txt || '(aucun paramètre trouvé)';
+      }
+    } else {
+      raw.value = '';
+      raw.placeholder = 'Sélectionne une requête pour voir ses paramètres...';
+    }
+  }
+}
+
+function toggleIntercept() {
+  fetch("{% url 'burp:intercept_toggle' %}", {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCookie('csrftoken')}
+  })
+  .then(r => r.json())
+  .then(data => {
+    interceptEnabled = data.enabled;
+    const btn = document.getElementById('btn-intercept');
+    if (interceptEnabled) {
+      btn.textContent = 'Intercept is on';
+      btn.className = 'btn-toolbar btn-intercept-on';
+      document.getElementById('blocked-list').innerHTML =
+        '<div class="no-blocked" style="color:#888;">En attente de requêtes... Navigue sur l\'app.</div>';
+    } else {
+      btn.textContent = 'Intercept is off';
+      btn.className = 'btn-toolbar btn-intercept-off';
+      document.getElementById('blocked-list').innerHTML =
+        '<div class="no-blocked">Intercept est désactivé — clique sur "Intercept is off" pour activer</div>';
+    }
+  });
+}
+
+function forwardBlocked() {
+  if (!selectedBlockedId) return;
+  const edited = document.getElementById('request-editor-raw').value;
+  fetch(`/proxy/${selectedBlockedId}/modify/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+    body: JSON.stringify({body: edited})
+  }).then(r => r.json()).then(d => {
+    console.log('Forward response:', d);
+    selectedBlockedId = null;
+    document.getElementById('request-editor-raw').value = '';
+    document.getElementById('btn-forward').disabled = true;
+    document.getElementById('btn-drop').disabled = true;
+    loadBlockedRequests();
+  });
+}
+
+function dropBlocked() {
+  if (!selectedBlockedId) return;
+  fetch(`/proxy/${selectedBlockedId}/drop/`, {method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')}})
+  .then(() => {
+    selectedBlockedId = null;
+    document.getElementById('request-editor-raw').value = '';
+    document.getElementById('btn-forward').disabled = true;
+    document.getElementById('btn-drop').disabled = true;
+    loadBlockedRequests();
+  });
+}
+
+function selectBlocked(id, method, url, body, headers) {
+  selectedBlockedId = id;
+  document.querySelectorAll('.blocked-item').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.blocked-item[data-id="${id}"]`);
+  if (el) el.classList.add('selected');
+  document.getElementById('btn-forward').disabled = false;
+  document.getElementById('btn-drop').disabled = false;
+  let raw = method + ' ' + url + ' HTTP/1.1\n';
+  if (headers && typeof headers === 'object') {
+    Object.entries(headers).forEach(([k,v]) => { raw += k + ': ' + v + '\n'; });
+  }
+  raw += '\n' + (body || '');
+  document.getElementById('request-editor-raw').value = raw;
+}
+
+function loadBlockedRequests() {
+  if (!interceptEnabled) return;
+  fetch("/proxy/history/")
+    .then(r => r.json())
+    .then(data => {
+      const blocked = data.requests.filter(r => r.intercepted);
+      const list = document.getElementById('blocked-list');
+      if (blocked.length === 0) {
+        list.innerHTML = '<div class="no-blocked" style="color:#888;">En attente de requêtes...</div>';
+        return;
+      }
+      list.innerHTML = '';
+      blocked.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'blocked-item';
+        div.dataset.id = r.id;
+        div.innerHTML = `
+          <span class="bi-method method-${r.method.toLowerCase()}">${r.method}</span>
+          <span class="bi-url">${r.url.length>50?r.url.substring(0,50)+'...':r.url}</span>
+          <span class="bi-time">${new Date(r.timestamp).toLocaleTimeString('fr-FR')}</span>
+        `;
+        div.addEventListener('click', function() {
+          selectBlocked(r.id, r.method, r.url, r.request_body, r.request_headers);
+        });
+        list.appendChild(div);
+      });
+    });
+}
+
+function loadRequests() {
+  return fetch("/proxy/history/")
+    .then(r => r.json())
+    .then(data => {
+      allRequests = data.requests;
+      filterRequests();
+      document.getElementById('req-count').textContent = allRequests.length + ' requête(s)';
+      if (interceptEnabled) loadBlockedRequests();
+      updateProxyStatus(allRequests.length);
+    });
+}
+
+function updateProxyStatus(count) {
+  const dot = document.getElementById('proxy-dot');
+  const txt = document.getElementById('proxy-status-text');
+  if (count > 0) {
+    dot.classList.add('active');
+    txt.textContent = `Proxy actif — ${count} requête(s) capturée(s)`;
+    txt.style.color = '#2ecc71';
+    document.getElementById('listener-status').textContent = 'Actif';
+    document.getElementById('listener-status').style.background = '#2ecc71';
+  } else {
+    dot.classList.remove('active');
+    txt.textContent = 'Proxy HTTP — configure le navigateur sur 127.0.0.1:8080';
+    txt.style.color = '#666';
+  }
+}
+
+function filterRequests() {
+  const ft = document.getElementById('filter-input').value.toLowerCase();
+  const fm = document.getElementById('method-filter').value;
+  const fs = document.getElementById('status-filter').value;
+  const tbody = document.getElementById('proxy-tbody');
+  const filtered = allRequests.filter(r => {
+    const mt = !ft || r.url.toLowerCase().includes(ft);
+    const mm = !fm || r.method === fm;
+    const ms = !fs || String(r.response_status||'').startsWith(fs);
+    return mt && mm && ms;
+  });
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-msg">⏳ En attente de requêtes...</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => `
+    <tr class="${r.intercepted?'intercepted-row':''}" onclick="showDetail(${r.id})">
+      <td>${r.id}</td>
+      <td><span class="method-${r.method.toLowerCase()}">${r.method}</span></td>
+      <td title="${r.url}">${r.url.length>65?r.url.substring(0,65)+'...':r.url}
+        ${r.intercepted?'<span class="badge-intercepted">intercepted</span>':''}</td>
+      <td><span class="${statusClass(r.response_status)}">${r.response_status||'—'}</span></td>
+      <td>${r.response_length?r.response_length+' B':'—'}</td>
+      <td>${r.response_time?r.response_time+'s':'—'}</td>
+      <td>${new Date(r.timestamp).toLocaleTimeString('fr-FR')}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn-action btn-eye" onclick="showDetail(${r.id})">👁</button>
+        <button class="btn-action btn-del" onclick="deleteReq(${r.id})">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+function statusClass(s) {
+  if (!s) return '';
+  if (s<300) return 'status-2xx';
+  if (s<400) return 'status-3xx';
+  if (s<500) return 'status-4xx';
+  return 'status-5xx';
+}
+
+function showDetail(id) {
+  const r = allRequests.find(x => x.id===id);
+  if (!r) return;
+  currentDetailId = id;
+  document.getElementById('detail-title').textContent = r.method + ' ' + r.url;
+  let reqText = r.method + ' ' + (r.path||r.url) + ' HTTP/1.1\nHost: ' + (r.host||'') + '\n';
+  if (r.request_headers && typeof r.request_headers === 'object') {
+    Object.entries(r.request_headers).forEach(([k,v]) => { reqText += k+': '+v+'\n'; });
+  }
+  reqText += '\n' + (r.request_body || '(corps vide)');
+  document.getElementById('detail-request').textContent = reqText;
+  document.getElementById('detail-response').textContent =
+    'HTTP/1.1 ' + (r.response_status||'—') + '\n' +
+    'Content-Length: ' + (r.response_length||'—') + '\n' +
+    'Response-Time: ' + (r.response_time||'—') + 's\n';
+  document.getElementById('detail-panel').style.display = 'block';
+}
+
+function closeDetail() { document.getElementById('detail-panel').style.display='none'; }
+
+function deleteReq(id) {
+  fetch(`/proxy/${id}/delete/`, {method:'DELETE', headers:{'X-CSRFToken':getCookie('csrftoken')}})
+  .then(() => loadRequests());
+}
+
+function clearHistory() {
+  if (!confirm('Effacer tout l\'historique ?')) return;
+  fetch("{% url 'burp:clear_proxy_history' %}", {method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')}})
+  .then(() => loadRequests());
+}
+
+function sendToRepeater(id) {
+  const r = allRequests.find(x => x.id===id);
+  if (!r) return;
+  fetch('/repeater/send/', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+    body: JSON.stringify({name: r.method+' '+(r.path||r.url), method:r.method, url:r.url, headers:r.request_headers, body:r.request_body})
+  }).then(res => res.json()).then(() => alert('Envoyé au Repeater ✅'));
+}
+
+function handleAction(val) {
+  if (!currentDetailId && !selectedBlockedId) return alert('Sélectionne une requête d\'abord.');
+  const id = currentDetailId || selectedBlockedId;
+  if (val === 'send_repeater') sendToRepeater(id);
+  if (val === 'copy_url') {
+    const r = allRequests.find(x => x.id===id);
+    if (r) { navigator.clipboard.writeText(r.url); alert('URL copiée !'); }
+  }
+  if (val === 'copy_request') {
+    const r = allRequests.find(x => x.id===id);
+    if (r) { navigator.clipboard.writeText(`curl -X ${r.method} '${r.url}'`); alert('Commande curl copiée !'); }
+  }
+}
+
+function openBrowser() {
+  alert('💡 Configure Firefox :\nParamètres → Proxy → Manuel\nHTTP : 127.0.0.1  Port : 8080\n\nEnsuite navigue sur n\'importe quel site HTTP.');
+}
+
+function getCookie(name) {
+  const v = `; ${document.cookie}`;
+  const p = v.split(`; ${name}=`);
+  if (p.length===2) return p.pop().split(';').shift();
+}
+
+loadRequests();
+setInterval(() => {
+  const currentSelected = selectedBlockedId;
+  loadRequests().then(() => { selectedBlockedId = currentSelected; });
+}, 2000);
+</script>
+
+{% endblock %}

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burp Suite Professional</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ===== CSS VARIABLES ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #1e1e1e; --bg-secondary: #252526; --bg-tertiary: #2d2d30;
+            --bg-hover: #2a2d2e; --bg-active: #37373d; --border: #3c3c3c;
+            --border-light: #454545; --text-primary: #cccccc; --text-secondary: #9d9d9d;
+            --text-muted: #6a6a6a; --orange: #e8510a; --orange-light: #ff6a1a;
+            --orange-dark: #c44008; --orange-glow: rgba(232,81,10,0.15);
+            --green: #4ec9b0; --red: #f44747; --yellow: #dcdcaa; --blue: #569cd6;
+            --scrollbar: #424242; --scrollbar-hover: #686868;
+        }
+        body { font-family:'Inter',sans-serif; background:var(--bg-primary); color:var(--text-primary); height:100vh; display:flex; flex-direction:column; overflow:hidden; font-size:12px; }
+
+        /* Menu bar */
+        .menu-bar { background:#323233; border-bottom:1px solid #1a1a1a; display:flex; align-items:center; height:30px; padding:0 8px; flex-shrink:0; gap:2px; position:relative; z-index:100; }
+        .burp-logo-icon { width:22px; height:22px; }
+        .menu-item { padding:4px 10px; color:var(--text-secondary); cursor:pointer; border-radius:3px; font-size:11.5px; transition:all 0.1s; user-select:none; }
+        .menu-item:hover { background:var(--bg-hover); color:var(--text-primary); }
+        .menu-bar-right { margin-left:auto; font-size:11px; color:var(--text-muted); border-left:1px solid var(--border); padding-left:12px; }
+
+        /* Main tabs */
+        .main-tabs { background:#2d2d30; border-bottom:1px solid #1a1a1a; display:flex; align-items:flex-end; height:36px; overflow-x:auto; flex-shrink:0; }
+        .main-tabs::-webkit-scrollbar { height:0; }
+        .main-tab { padding:0 16px; height:36px; display:flex; align-items:center; cursor:pointer; color:var(--text-secondary); font-size:12px; font-weight:500; white-space:nowrap; border-right:1px solid #1a1a1a; transition:all 0.1s; user-select:none; gap:6px; flex-shrink:0; }
+        .main-tab:hover { background:var(--bg-hover); color:var(--text-primary); }
+        .main-tab.active { background:var(--bg-primary); color:var(--text-primary); border-bottom:2px solid var(--orange); }
+        .tab-badge { background:var(--orange); color:white; border-radius:8px; padding:1px 5px; font-size:9px; font-weight:600; min-width:16px; text-align:center; }
+
+        /* Content area */
+        .main-content { flex:1; display:flex; overflow:hidden; flex-direction:column; }
+
+        /* Sub tabs */
+        .sub-tabs { background:#2d2d30; border-bottom:1px solid var(--border); display:flex; align-items:center; height:32px; flex-shrink:0; }
+        .sub-tab { padding:0 16px; height:32px; display:flex; align-items:center; cursor:pointer; color:var(--text-secondary); font-size:11.5px; border-right:1px solid var(--border); transition:all 0.1s; user-select:none; white-space:nowrap; }
+        .sub-tab:hover { background:var(--bg-hover); color:var(--text-primary); }
+        .sub-tab.active { background:var(--tab-active, var(--bg-primary)); color:var(--text-primary); border-bottom:2px solid var(--orange); }
+
+        /* Action bar */
+        .action-bar { background:var(--bg-secondary); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:6px 12px; gap:6px; flex-shrink:0; }
+
+        /* Buttons */
+        .btn { padding:4px 14px; border-radius:3px; cursor:pointer; font-size:11.5px; font-family:'Inter',sans-serif; font-weight:500; border:1px solid var(--border-light); transition:all 0.1s; user-select:none; display:flex; align-items:center; gap:5px; }
+        .btn-default { background:#3c3c3c; color:var(--text-primary); }
+        .btn-default:hover { background:#4a4a4a; }
+        .btn-orange { background:var(--orange); color:white; border-color:var(--orange-dark); }
+        .btn-orange:hover { background:var(--orange-light); }
+        .btn-active { background:var(--orange); color:white; border-color:var(--orange-dark); box-shadow:0 0 8px var(--orange-glow); }
+
+        /* Forms */
+        .form-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+        .form-label { font-size:11px; color:var(--text-secondary); min-width:120px; }
+        .form-input { background:var(--bg-tertiary); border:1px solid var(--border); color:var(--text-primary); padding:4px 8px; border-radius:3px; font-size:11.5px; font-family:'JetBrains Mono',monospace; flex:1; outline:none; }
+        .form-input:focus { border-color:var(--orange); }
+        .form-select { background:var(--bg-tertiary); border:1px solid var(--border); color:var(--text-primary); padding:4px 8px; border-radius:3px; font-size:11.5px; font-family:'Inter',sans-serif; outline:none; cursor:pointer; }
+
+        /* Config sections */
+        .config-section { border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+        .config-section-title { background:#2d2d30; border-bottom:1px solid var(--border); padding:7px 14px; font-size:11.5px; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:6px; }
+        .config-section-body { padding:14px; }
+
+        /* Panels */
+        .panel-title-bar { background:#2d2d30; border-bottom:1px solid var(--border); padding:5px 12px; font-size:11px; font-weight:600; color:var(--text-secondary); display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .panel-title-bar .dot { width:6px; height:6px; border-radius:50%; background:var(--orange); }
+        .code-editor { flex:1; overflow:auto; background:var(--bg-primary); padding:8px 0; }
+        .code-editor::-webkit-scrollbar { width:8px; }
+        .code-editor::-webkit-scrollbar-track { background:var(--bg-primary); }
+        .code-editor::-webkit-scrollbar-thumb { background:var(--scrollbar); border-radius:4px; }
+        .code-line { display:flex; font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.6; padding:0 12px; }
+        .code-line:hover { background:rgba(255,255,255,0.03); }
+        .line-number { color:var(--text-muted); user-select:none; width:35px; text-align:right; margin-right:16px; flex-shrink:0; }
+
+        /* HTTP syntax */
+        .http-method { color:#569cd6; font-weight:700; }
+        .http-path { color:#9cdcfe; }
+        .http-version { color:#6a9955; }
+        .http-header-name { color:#9cdcfe; }
+        .http-header-value { color:var(--text-primary); }
+        .http-host { color:#4ec9b0; }
+        .http-body { color:#ce9178; }
+
+        /* Tables */
+        .toolbar { background:var(--bg-secondary); border-bottom:1px solid var(--border); padding:6px 12px; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .filter-badge { background:var(--bg-tertiary); border:1px solid var(--border); padding:3px 10px; border-radius:3px; font-size:11px; color:var(--text-secondary); cursor:pointer; }
+        .search-input { background:var(--bg-tertiary); border:1px solid var(--border); color:var(--text-primary); padding:3px 8px; border-radius:3px; font-size:11px; font-family:'Inter',sans-serif; width:200px; outline:none; }
+        .search-input:focus { border-color:var(--orange); }
+        .table-container { flex:1; overflow:auto; }
+        .table-container::-webkit-scrollbar { width:8px; height:8px; }
+        .table-container::-webkit-scrollbar-track { background:var(--bg-primary); }
+        .table-container::-webkit-scrollbar-thumb { background:var(--scrollbar); border-radius:4px; }
+        table { width:100%; border-collapse:collapse; font-size:11.5px; font-family:'JetBrains Mono',monospace; }
+        thead { position:sticky; top:0; z-index:10; }
+        thead th { background:#2d2d30; border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:6px 10px; text-align:left; font-weight:500; color:var(--text-secondary); white-space:nowrap; user-select:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:11px; }
+        thead th:hover { background:var(--bg-hover); color:var(--text-primary); }
+        tbody tr { border-bottom:1px solid #2a2a2a; cursor:pointer; transition:background 0.05s; }
+        tbody tr:hover { background:#2a2d2e; }
+        tbody tr.selected { background:#094771; }
+        tbody tr.error td { color:#f44747; }
+        tbody tr.redirect td { color:#dcdcaa; }
+        tbody td { padding:4px 10px; border-right:1px solid #2a2a2a; white-space:nowrap; overflow:hidden; max-width:300px; text-overflow:ellipsis; }
+        .method-get { color:#4ec9b0; font-weight:600; }
+        .method-post { color:#f44747; font-weight:600; }
+        .method-put { color:#dcdcaa; font-weight:600; }
+        .method-delete { color:#f44747; font-weight:600; }
+        .status-200 { color:#4ec9b0; }
+        .status-301,.status-302 { color:#dcdcaa; }
+        .status-404,.status-500 { color:#f44747; }
+
+        /* Split panels */
+        .split-panel { display:flex; flex:1; overflow:hidden; flex-direction:column; }
+        .split-top { flex:1; overflow:hidden; border-bottom:3px solid var(--border); min-height:80px; }
+        .split-bottom { height:300px; overflow:hidden; display:flex; flex-direction:column; flex-shrink:0; }
+        .req-res-container { display:flex; height:100%; overflow:hidden; }
+        .req-panel,.res-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; border-right:1px solid var(--border); }
+
+        /* Badges */
+        .badge { display:inline-block; padding:1px 7px; border-radius:3px; font-size:10px; font-weight:600; }
+        .badge-green { background:rgba(78,201,176,0.2); color:#4ec9b0; border:1px solid #4ec9b0; }
+        .badge-orange { background:rgba(232,81,10,0.2); color:var(--orange); border:1px solid var(--orange); }
+        .badge-red { background:rgba(244,71,71,0.2); color:#f44747; border:1px solid #f44747; }
+
+        /* Misc */
+        .scrollable { flex:1; overflow:auto; }
+        .scrollable::-webkit-scrollbar { width:8px; }
+        .scrollable::-webkit-scrollbar-track { background:var(--bg-primary); }
+        .scrollable::-webkit-scrollbar-thumb { background:var(--scrollbar); border-radius:4px; }
+        .repeater-layout { display:flex; flex:1; overflow:hidden; }
+        .repeater-req,.repeater-res { flex:1; display:flex; flex-direction:column; overflow:hidden; border-right:1px solid var(--border); }
+        .attack-type-card { border:1px solid var(--border); border-radius:4px; padding:10px 12px; cursor:pointer; transition:all 0.1s; }
+        .attack-type-card:hover,.attack-type-card.selected { border-color:var(--orange); background:var(--orange-glow); }
+        .attack-type-name { font-size:12px; font-weight:600; color:var(--text-primary); }
+        .attack-type-desc { font-size:10px; color:var(--text-muted); margin-top:3px; }
+        .decoder-textarea { width:100%; min-height:100px; background:var(--bg-primary); border:none; color:var(--text-primary); font-family:'JetBrains Mono',monospace; font-size:11.5px; padding:10px 12px; resize:vertical; outline:none; }
+        .settings-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .settings-table th { background:#2d2d30; border:1px solid var(--border); padding:7px 12px; text-align:left; font-weight:600; color:var(--text-secondary); }
+        .settings-table td { border:1px solid var(--border); padding:6px 12px; }
+        .settings-table tr:hover td { background:var(--bg-hover); }
+        .proxy-settings { flex:1; overflow:auto; padding:16px; }
+        .context-menu { position:fixed; background:#3c3c3c; border:1px solid #5a5a5a; border-radius:4px; padding:4px 0; z-index:9999; min-width:180px; box-shadow:0 4px 16px rgba(0,0,0,0.5); display:none; }
+        .context-menu-item { padding:6px 16px; font-size:11.5px; cursor:pointer; color:var(--text-primary); }
+        .context-menu-item:hover { background:var(--orange); }
+        .context-menu-sep { height:1px; background:var(--border); margin:3px 0; }
+        .tree-item { padding:5px 12px 5px 20px; cursor:pointer; font-size:11.5px; display:flex; align-items:center; gap:6px; transition:background 0.05s; font-family:'JetBrains Mono',monospace; }
+        .tree-item:hover { background:var(--bg-hover); }
+        .tree-item.selected { background:#094771; }
+        .intercept-area { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; background:var(--bg-primary); gap:20px; }
+        .intercept-icon { width:80px; height:80px; opacity:0.3; }
+        .intercept-off-title { font-size:18px; font-weight:600; }
+        .intercept-off-desc { font-size:12px; color:var(--text-secondary); text-align:center; max-width:380px; line-height:1.6; }
+        .intercept-actions { display:flex; gap:8px; margin-top:8px; }
+        #status-msg { transition: color 0.3s; }
+
+        /* Status bar */
+        .status-bar { background:var(--orange); height:22px; display:flex; align-items:center; padding:0 12px; gap:20px; flex-shrink:0; }
+        .status-bar-item { font-size:10.5px; color:rgba(255,255,255,0.9); display:flex; align-items:center; gap:5px; }
+        .status-dot { width:5px; height:5px; border-radius:50%; background:#90ff90; }
+    </style>
+    {% block extra_styles %}{% endblock %}
+</head>
+<body>
+
+<!-- MENU BAR -->
+<div class="menu-bar">
+    <div style="margin-right:12px">
+        <div class="burp-logo-icon">
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <radialGradient id="lg" cx="40%" cy="35%" r="60%">
+                        <stop offset="0%" style="stop-color:#ff8c42"/>
+                        <stop offset="100%" style="stop-color:#c44008"/>
+                    </radialGradient>
+                </defs>
+                <circle cx="20" cy="20" r="19" fill="url(#lg)"/>
+                <circle cx="20" cy="20" r="10" fill="rgba(0,0,0,0.35)"/>
+                <circle cx="14" cy="14" r="4" fill="rgba(255,255,255,0.5)"/>
+                <circle cx="26" cy="26" r="4" fill="rgba(255,255,255,0.2)"/>
+            </svg>
+        </div>
+    </div>
+    <span class="menu-item">Burp</span>
+    <span class="menu-item">Project</span>
+    <span class="menu-item">Intruder</span>
+    <span class="menu-item">Repeater</span>
+    <span class="menu-item">View</span>
+    <span class="menu-item">Help</span>
+    <div class="menu-bar-right">⚡ Temporary Project · Burp Suite Professional v2024.1</div>
+</div>
+
+<!-- MAIN TABS -->
+<div class="main-tabs">
+    <a href="{% url 'dashboard' %}" class="main-tab {% block tab_dashboard %}{% endblock %}" style="text-decoration:none;color:inherit">📊 Dashboard</a>
+    <a href="{% url 'target' %}" class="main-tab {% block tab_target %}{% endblock %}" style="text-decoration:none;color:inherit">🎯 Target</a>
+    <a href="{% url 'proxy' %}" class="main-tab {% block tab_proxy %}{% endblock %}" style="text-decoration:none;color:inherit">
+        🔀 Proxy <span class="tab-badge">{{ proxy_count|default:"" }}</span>
+    </a>
+    <a href="{% url 'scanner' %}" class="main-tab {% block tab_scanner %}{% endblock %}" style="text-decoration:none;color:inherit">🔍 Scanner</a>
+    <a href="{% url 'intruder' %}" class="main-tab {% block tab_intruder %}{% endblock %}" style="text-decoration:none;color:inherit">⚔️ Intruder</a>
+    <a href="{% url 'repeater' %}" class="main-tab {% block tab_repeater %}{% endblock %}" style="text-decoration:none;color:inherit">🔁 Repeater</a>
+    <a href="{% url 'spider' %}" class="main-tab {% block tab_spider %}{% endblock %}" style="text-decoration:none;color:inherit">🕷️ Spider</a>
+    <a href="{% url 'decoder' %}" class="main-tab {% block tab_decoder %}{% endblock %}" style="text-decoration:none;color:inherit">🔓 Decoder</a>
+    <a href="{% url 'comparer' %}" class="main-tab {% block tab_comparer %}{% endblock %}" style="text-decoration:none;color:inherit">⚖️ Comparer</a>
+    <div class="main-tab {% block tab_logger %}{% endblock %}">📋 Logger</div>
+    <div class="main-tab {% block tab_sequencer %}{% endblock %}">🎲 Sequencer</div>
+    <div class="main-tab {% block tab_collaborator %}{% endblock %}">☁️ Collaborator</div>
+    <div class="main-tab {% block tab_extensions %}{% endblock %}">🔌 Extensions</div>
+    <div class="main-tab {% block tab_settings %}{% endblock %}">⚙️ Settings</div>
+</div>
+
+<!-- CONTENT -->
+<div class="main-content">
+    {% block content %}{% endblock %}
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+    <div class="status-bar-item"><span class="status-dot"></span>Proxy running on 127.0.0.1:8080</div>
+    <div class="status-bar-item">|</div>
+    <div class="status-bar-item">Memory: {% block memory_usage %}256MB{% endblock %}</div>
+    <div class="status-bar-item">|</div>
+    <div class="status-bar-item" id="status-msg">{% block status_msg %}Ready{% endblock %}</div>
+    <div class="status-bar-item" style="margin-left:auto">Burp Suite Professional v2024.1</div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div class="context-menu" id="ctx-menu">
+    <div class="context-menu-item" onclick="sendTo('repeater')">Send to Repeater</div>
+    <div class="context-menu-item" onclick="sendTo('intruder')">Send to Intruder</div>
+    <div class="context-menu-item" onclick="sendTo('decoder')">Send to Decoder</div>
+    <div class="context-menu-sep"></div>
+    <div class="context-menu-item" onclick="ctxCopyUrl()">Copy URL</div>
+    <div class="context-menu-item">Copy as curl command</div>
+    <div class="context-menu-sep"></div>
+    <div class="context-menu-item">Add to scope</div>
+    <div class="context-menu-item">Spider from here</div>
+</div>
+
+<script>
+let ctxSelectedRow = null;
+
+document.addEventListener('contextmenu', e => {
+    const row = e.target.closest('tbody tr');
+    if (row) {
+        e.preventDefault();
+        ctxSelectedRow = row;
+        const menu = document.getElementById('ctx-menu');
+        menu.style.display = 'block';
+        menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+    }
+});
+
+document.addEventListener('click', () => {
+    document.getElementById('ctx-menu').style.display = 'none';
+});
+
+function sendTo(tool) {
+    window.location.href = `/${tool}/`;
+}
+
+function ctxCopyUrl() {
+    if (ctxSelectedRow) {
+        const url = ctxSelectedRow.querySelector('td:nth-child(4)')?.textContent;
+        if (url) navigator.clipboard.writeText(url);
+    }
+}
+
+function selectRow(row) {
+    const tbody = row.parentElement;
+    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+}
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

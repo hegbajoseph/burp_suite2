@@ -1,0 +1,615 @@
+<!-- dashboard.html - Remplace ton template dashboard existant -->
+<!-- Ajoute ce bloc dans le <head> de ton template existant -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION À AJOUTER DANS TON HTML EXISTANT
+     Colle ce CSS dans ton <style> ou fichier CSS
+═══════════════════════════════════════════════════════════ -->
+<style>
+/* ── Modal Nouveau Scan ── */
+.scan-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.scan-modal-overlay.active {
+  display: flex;
+}
+.scan-modal {
+  background: #0d1b2e;
+  border: 1px solid #1e3a5f;
+  border-radius: 8px;
+  width: 600px;
+  max-width: 95vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.scan-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #1e3a5f;
+}
+.scan-modal-header h2 {
+  color: #e8621a;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+.scan-modal-close {
+  background: none;
+  border: none;
+  color: #7a9cc4;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.scan-modal-close:hover { color: #e8621a; }
+.scan-modal-body { padding: 24px; }
+
+/* ── Formulaire de scan ── */
+.scan-form-group { margin-bottom: 20px; }
+.scan-form-group label {
+  display: block;
+  color: #e8621a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  font-family: 'Courier New', monospace;
+}
+.scan-input {
+  width: 100%;
+  background: #0a1520;
+  border: 1px solid #1e3a5f;
+  border-radius: 4px;
+  color: #c8d8e8;
+  font-size: 14px;
+  padding: 10px 14px;
+  font-family: 'Courier New', monospace;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.scan-input:focus {
+  outline: none;
+  border-color: #e8621a;
+}
+.scan-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.scan-option {
+  background: #0a1520;
+  border: 1px solid #1e3a5f;
+  border-radius: 4px;
+  padding: 10px 14px;
+  color: #7a9cc4;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.scan-option.active {
+  border-color: #e8621a;
+  color: #e8621a;
+  background: rgba(232, 98, 26, 0.1);
+}
+.scan-option input[type="checkbox"] { accent-color: #e8621a; }
+
+.btn-start-scan {
+  width: 100%;
+  background: #e8621a;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 12px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  transition: background 0.2s;
+}
+.btn-start-scan:hover { background: #d4521a; }
+.btn-start-scan:disabled {
+  background: #3a3a3a;
+  cursor: not-allowed;
+}
+
+/* ── Barre de progression ── */
+.scan-progress-section {
+  display: none;
+  margin-top: 20px;
+  padding: 16px;
+  background: #0a1520;
+  border: 1px solid #1e3a5f;
+  border-radius: 4px;
+}
+.scan-progress-section.active { display: block; }
+.progress-label {
+  color: #7a9cc4;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+.progress-bar-bg {
+  background: #1e3a5f;
+  border-radius: 2px;
+  height: 6px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  background: linear-gradient(90deg, #e8621a, #ff8c42);
+  height: 100%;
+  width: 0%;
+  transition: width 0.5s ease;
+  border-radius: 2px;
+}
+.progress-message {
+  color: #e8621a;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  margin-top: 8px;
+}
+
+/* ── Résultats dans le dashboard ── */
+.issues-panel {
+  margin-top: 16px;
+  display: none;
+}
+.issues-panel.active { display: block; }
+.issue-item {
+  background: #0a1520;
+  border: 1px solid #1e3a5f;
+  border-left: 3px solid #1e3a5f;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.issue-item:hover { border-color: #e8621a; }
+.issue-item.high { border-left-color: #e8621a; }
+.issue-item.medium { border-left-color: #f0a500; }
+.issue-item.low { border-left-color: #3b82f6; }
+.issue-item.info { border-left-color: #6b7280; }
+.issue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.issue-title {
+  color: #c8d8e8;
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+}
+.severity-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: 'Courier New', monospace;
+  white-space: nowrap;
+}
+.severity-badge.high { background: rgba(232, 98, 26, 0.2); color: #e8621a; border: 1px solid #e8621a; }
+.severity-badge.medium { background: rgba(240, 165, 0, 0.2); color: #f0a500; border: 1px solid #f0a500; }
+.severity-badge.low { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid #3b82f6; }
+.severity-badge.info { background: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid #6b7280; }
+.issue-url {
+  color: #4a6a8a;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.issue-detail {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #1e3a5f;
+}
+.issue-detail.open { display: block; }
+.detail-row { margin-bottom: 8px; }
+.detail-label {
+  color: #e8621a;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: 'Courier New', monospace;
+  margin-bottom: 2px;
+}
+.detail-value {
+  color: #7a9cc4;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+.detail-value.payload {
+  background: #0d1b2e;
+  padding: 6px 10px;
+  border-radius: 3px;
+  border: 1px solid #1e3a5f;
+}
+.remediation-box {
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 3px;
+  padding: 8px 12px;
+}
+.remediation-box .detail-value { color: #93c5fd; }
+
+/* ── Recent Issues table dans le dashboard ── */
+.issue-row-dash {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #1e3a5f;
+  align-items: center;
+}
+.issue-row-dash:last-child { border-bottom: none; }
+</style>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL "NOUVEAU SCAN"
+     Colle ce HTML juste avant </body>
+═══════════════════════════════════════════════════════════ -->
+
+<!-- Overlay du scan -->
+<div class="scan-modal-overlay" id="scanModalOverlay">
+  <div class="scan-modal">
+    <div class="scan-modal-header">
+      <h2>▸ NOUVEAU SCAN</h2>
+      <button class="scan-modal-close" onclick="closeScanModal()">✕</button>
+    </div>
+    <div class="scan-modal-body">
+
+      <!-- URL cible -->
+      <div class="scan-form-group">
+        <label>URL cible</label>
+        <input type="text" class="scan-input" id="scanTargetUrl"
+               placeholder="https://exemple.com"
+               onkeydown="if(event.key==='Enter') launchScan()">
+      </div>
+
+      <!-- Types de scan -->
+      <div class="scan-form-group">
+        <label>Modules de scan</label>
+        <div class="scan-options">
+          <label class="scan-option active">
+            <input type="checkbox" checked disabled> XSS (Cross-Site Scripting)
+          </label>
+          <label class="scan-option active">
+            <input type="checkbox" checked disabled> SQL Injection
+          </label>
+          <label class="scan-option active">
+            <input type="checkbox" checked disabled> CSRF
+          </label>
+          <label class="scan-option active">
+            <input type="checkbox" checked disabled> Headers de sécurité
+          </label>
+          <label class="scan-option active">
+            <input type="checkbox" checked disabled> SSL/TLS
+          </label>
+          <label class="scan-option active">
+            <input type="checkbox" checked disabled> Open Redirect
+          </label>
+        </div>
+      </div>
+
+      <!-- Bouton lancer -->
+      <button class="btn-start-scan" id="btnStartScan" onclick="launchScan()">
+        ▶ LANCER LE SCAN
+      </button>
+
+      <!-- Progression -->
+      <div class="scan-progress-section" id="scanProgressSection">
+        <div class="progress-label">
+          <span>Progression</span>
+          <span id="scanProgressPct">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="scanProgressBar"></div>
+        </div>
+        <div class="progress-message" id="scanProgressMsg">Initialisation...</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION RÉSULTATS - À insérer dans le dashboard
+     Remplace ou complète ta section "Recent Issues"
+═══════════════════════════════════════════════════════════ -->
+
+<!-- Colle cette div dans la section "Recent Issues" de ton dashboard -->
+<div id="recentIssuesContainer">
+  <!-- Rempli dynamiquement par JS -->
+  <p style="color:#4a6a8a; font-size:13px; text-align:center; padding:20px 0;">
+    Aucun problème détecté
+  </p>
+</div>
+
+<!-- Panneau de détail des issues (affiché sous le dashboard) -->
+<div id="fullIssuesPanel" class="issues-panel">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h3 style="color:#e8621a; font-size:14px; font-family:'Courier New',monospace; margin:0;">
+      ▸ RÉSULTATS DU SCAN — <span id="scanTargetDisplay"></span>
+    </h3>
+    <button onclick="clearIssuesPanel()"
+            style="background:none;border:1px solid #1e3a5f;color:#7a9cc4;font-size:11px;
+                   padding:4px 10px;border-radius:3px;cursor:pointer;font-family:'Courier New',monospace;">
+      ✕ FERMER
+    </button>
+  </div>
+  <div id="issuesList"></div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+     Colle ce script en fin de page
+═══════════════════════════════════════════════════════════ -->
+<script>
+let currentScanId = null;
+let progressInterval = null;
+
+// ── Ouvrir/Fermer le modal ──────────────────────────────────
+function openScanModal() {
+  document.getElementById('scanModalOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('scanTargetUrl').focus(), 100);
+}
+
+function closeScanModal() {
+  if (currentScanId && progressInterval) return; // scan en cours
+  document.getElementById('scanModalOverlay').classList.remove('active');
+  resetScanForm();
+}
+
+document.getElementById('scanModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeScanModal();
+});
+
+function resetScanForm() {
+  document.getElementById('scanTargetUrl').value = '';
+  document.getElementById('scanProgressSection').classList.remove('active');
+  document.getElementById('btnStartScan').disabled = false;
+  document.getElementById('btnStartScan').textContent = '▶ LANCER LE SCAN';
+  document.getElementById('scanProgressBar').style.width = '0%';
+  document.getElementById('scanProgressPct').textContent = '0%';
+  document.getElementById('scanProgressMsg').textContent = 'Initialisation...';
+}
+
+// ── Lancer le scan ─────────────────────────────────────────
+async function launchScan() {
+  const url = document.getElementById('scanTargetUrl').value.trim();
+  if (!url) {
+    alert('Veuillez entrer une URL cible.');
+    return;
+  }
+
+  const btn = document.getElementById('btnStartScan');
+  btn.disabled = true;
+  btn.textContent = '⏳ SCAN EN COURS...';
+
+  document.getElementById('scanProgressSection').classList.add('active');
+  document.getElementById('fullIssuesPanel').classList.remove('active');
+
+  try {
+    const resp = await fetch('/api/scan/start/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
+      body: JSON.stringify({url: url}),
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Erreur serveur');
+
+    currentScanId = data.scan_id;
+    document.getElementById('scanTargetDisplay').textContent = url;
+    startProgressPolling(data.scan_id, url);
+
+  } catch (err) {
+    alert('Erreur : ' + err.message);
+    btn.disabled = false;
+    btn.textContent = '▶ LANCER LE SCAN';
+  }
+}
+
+// ── Polling de progression ─────────────────────────────────
+function startProgressPolling(scanId, url) {
+  progressInterval = setInterval(async () => {
+    try {
+      const resp = await fetch(`/api/scan/${scanId}/progress/`);
+      const data = await resp.json();
+
+      const pct = data.progress || 0;
+      document.getElementById('scanProgressBar').style.width = pct + '%';
+      document.getElementById('scanProgressPct').textContent = pct + '%';
+      document.getElementById('scanProgressMsg').textContent = data.message || '';
+
+      if (data.status === 'completed' || data.status === 'failed') {
+        clearInterval(progressInterval);
+        progressInterval = null;
+        currentScanId = null;
+
+        if (data.status === 'completed') {
+          await loadScanResults(scanId, url);
+          closeScanModal();
+          refreshDashboardStats();
+        } else {
+          document.getElementById('scanProgressMsg').textContent = '❌ Scan échoué';
+          document.getElementById('btnStartScan').disabled = false;
+          document.getElementById('btnStartScan').textContent = '▶ RÉESSAYER';
+        }
+      }
+    } catch (e) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+  }, 1500);
+}
+
+// ── Charger et afficher les résultats ─────────────────────
+async function loadScanResults(scanId, url) {
+  const resp = await fetch(`/api/scan/${scanId}/results/`);
+  const data = await resp.json();
+
+  // Mettre à jour "Recent Issues" dans le dashboard
+  updateRecentIssues(data);
+
+  // Afficher le panneau complet
+  const panel = document.getElementById('fullIssuesPanel');
+  const list = document.getElementById('issuesList');
+  panel.classList.add('active');
+  list.innerHTML = '';
+
+  if (data.issues.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:30px;color:#4a6a8a;font-family:'Courier New',monospace;">
+      ✓ Aucune vulnérabilité détectée
+    </div>`;
+    return;
+  }
+
+  data.issues.forEach((issue, idx) => {
+    const el = document.createElement('div');
+    el.className = `issue-item ${issue.severity}`;
+    el.innerHTML = `
+      <div class="issue-header">
+        <div class="issue-title">${escHtml(issue.title)}</div>
+        <span class="severity-badge ${issue.severity}">${issue.severity.toUpperCase()}</span>
+      </div>
+      <div class="issue-url">${escHtml(issue.url)}</div>
+      <div class="issue-detail" id="detail-${idx}">
+        <div class="detail-row">
+          <div class="detail-label">Description</div>
+          <div class="detail-value">${escHtml(issue.description)}</div>
+        </div>
+        ${issue.parameter ? `<div class="detail-row">
+          <div class="detail-label">Paramètre</div>
+          <div class="detail-value payload">${escHtml(issue.parameter)}</div>
+        </div>` : ''}
+        ${issue.payload ? `<div class="detail-row">
+          <div class="detail-label">Payload utilisé</div>
+          <div class="detail-value payload">${escHtml(issue.payload)}</div>
+        </div>` : ''}
+        ${issue.evidence ? `<div class="detail-row">
+          <div class="detail-label">Preuve</div>
+          <div class="detail-value">${escHtml(issue.evidence)}</div>
+        </div>` : ''}
+        ${issue.remediation ? `<div class="detail-row">
+          <div class="detail-label">Remédiation</div>
+          <div class="remediation-box"><div class="detail-value">${escHtml(issue.remediation)}</div></div>
+        </div>` : ''}
+      </div>
+    `;
+    el.addEventListener('click', () => {
+      const d = document.getElementById(`detail-${idx}`);
+      d.classList.toggle('open');
+    });
+    list.appendChild(el);
+  });
+
+  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function updateRecentIssues(data) {
+  const container = document.getElementById('recentIssuesContainer');
+  if (!container) return;
+
+  if (data.issues.length === 0) {
+    container.innerHTML = `<p style="color:#4a6a8a;font-size:13px;text-align:center;padding:20px 0;">
+      Aucun problème détecté sur ${escHtml(data.url)}
+    </p>`;
+    return;
+  }
+
+  const top5 = data.issues.slice(0, 5);
+  container.innerHTML = top5.map(issue => `
+    <div class="issue-row-dash">
+      <div>
+        <div style="color:#c8d8e8;font-size:12px;font-weight:600;">${escHtml(issue.title)}</div>
+        <div style="color:#4a6a8a;font-size:11px;font-family:'Courier New',monospace;margin-top:2px;">
+          ${escHtml(issue.url.length > 60 ? issue.url.substring(0, 60) + '…' : issue.url)}
+        </div>
+      </div>
+      <span class="severity-badge ${issue.severity}">${issue.severity.toUpperCase()}</span>
+    </div>
+  `).join('') + (data.issues.length > 5 ? `
+    <div style="text-align:center;padding:8px 0;color:#e8621a;font-size:11px;font-family:'Courier New',monospace;">
+      + ${data.issues.length - 5} autres problèmes
+    </div>
+  ` : '');
+}
+
+async function refreshDashboardStats() {
+  // Met à jour High Issues et Total Scans dans les compteurs du dashboard
+  try {
+    const resp = await fetch('/api/scans/recent/');
+    const data = await resp.json();
+    if (!data.scans.length) return;
+
+    const totalHighIssues = data.scans.reduce((s, sc) => s + sc.high_issues, 0);
+    const totalScans = data.scans.length;
+
+    // Mettre à jour les compteurs (adapte les sélecteurs à ton HTML)
+    const highEl = document.querySelector('[data-stat="high-issues"]');
+    const totalEl = document.querySelector('[data-stat="total-scans"]');
+    if (highEl) highEl.textContent = totalHighIssues;
+    if (totalEl) totalEl.textContent = totalScans;
+  } catch(e) {}
+}
+
+function clearIssuesPanel() {
+  document.getElementById('fullIssuesPanel').classList.remove('active');
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function getCsrfToken() {
+  const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+  return cookie ? cookie.trim().split('=')[1] : '';
+}
+
+// ── Connecter le bouton "New Scan" du dashboard ────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Trouve le bouton New Scan et branche openScanModal()
+  document.querySelectorAll('[data-action="new-scan"], .new-scan-btn').forEach(btn => {
+    btn.addEventListener('click', openScanModal);
+  });
+});
+</script>

@@ -1,0 +1,187 @@
+{% extends "burp/base.html" %}
+{% block active_tab %}scanner{% endblock %}
+{% block content %}
+
+<div class="sub-tabs">
+    <div class="sub-tab active">Dashboard</div>
+    <div class="sub-tab">Issue activity</div>
+    <div class="sub-tab">Scan queue</div>
+    <div class="sub-tab">Live scanning</div>
+    <div class="sub-tab">Issue definitions</div>
+</div>
+
+<div class="scrollable" style="padding:16px;">
+
+    <!-- New Scan Button -->
+    <div class="action-bar" style="margin-bottom:16px;border-radius:4px;border:1px solid var(--border)">
+        <button class="btn btn-orange" onclick="showNewScanModal()">▶ New scan</button>
+        <button class="btn btn-default">Pause all</button>
+        <button class="btn btn-default">Resume all</button>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">{{ scans.count }} scans total</span>
+    </div>
+
+    <!-- Scan Queue -->
+    <div class="config-section" style="margin-bottom:16px">
+        <div class="config-section-title">📋 Scan Queue</div>
+        <div class="config-section-body" style="padding:0">
+            <table class="settings-table" style="margin:0">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Target</th><th>Status</th>
+                        <th>High</th><th>Medium</th><th>Low</th><th>Info</th>
+                        <th>Time started</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in scans %}
+                    <tr>
+                        <td style="color:var(--text-muted);font-size:10px">{{ scan.id|truncatechars:8 }}</td>
+                        <td style="color:#569cd6">{{ scan.url }}</td>
+                        <td>
+                            {% if scan.status == 'completed' %}
+                                <span class="badge badge-green">Completed</span>
+                            {% elif scan.status == 'running' %}
+                                <span class="badge badge-orange">Running</span>
+                            {% elif scan.status == 'failed' %}
+                                <span class="badge badge-red">Failed</span>
+                            {% else %}
+                                <span class="badge">{{ scan.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:{% if scan.high_issues > 0 %}#f44747{% else %}var(--text-muted){% endif %}">
+                            {{ scan.high_issues|default:"—" }}
+                        </td>
+                        <td style="color:{% if scan.medium_issues > 0 %}#dcdcaa{% else %}var(--text-muted){% endif %}">
+                            {{ scan.medium_issues|default:"—" }}
+                        </td>
+                        <td style="color:{% if scan.low_issues > 0 %}#4ec9b0{% else %}var(--text-muted){% endif %}">
+                            {{ scan.low_issues|default:"—" }}
+                        </td>
+                        <td style="color:var(--text-muted)">{{ scan.total_issues|default:"—" }}</td>
+                        <td>{{ scan.created_at|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'burp:scan_detail' scan.id %}" class="btn btn-default" style="text-decoration:none;padding:2px 10px;font-size:10px">Details</a>
+                            <form method="post" action="{% url 'burp:delete_scan' scan.id %}" style="display:inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn" style="background:#3a1515;border-color:#f44747;color:#f44747;padding:2px 8px;font-size:10px">✕</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">
+                            No scans yet — click "New scan" to start
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Issue Summary -->
+    {% if issues %}
+    <div class="config-section">
+        <div class="config-section-title">🐛 Issue Activity</div>
+        <div class="config-section-body" style="padding:0">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>Severity</th><th>Issue Type</th><th>URL</th><th>Parameter</th><th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for issue in issues %}
+                    <tr>
+                        <td>
+                            {% if issue.severity == 'high' %}
+                                <span class="badge badge-red">High</span>
+                            {% elif issue.severity == 'medium' %}
+                                <span class="badge" style="background:rgba(220,220,170,0.2);color:#dcdcaa;border:1px solid #dcdcaa">Medium</span>
+                            {% elif issue.severity == 'low' %}
+                                <span class="badge badge-green">Low</span>
+                            {% else %}
+                                <span class="badge" style="background:rgba(86,156,214,0.2);color:#569cd6;border:1px solid #569cd6">Info</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ issue.issue_type }}</td>
+                        <td style="color:#4ec9b0">{{ issue.url|truncatechars:50 }}</td>
+                        <td style="color:#9cdcfe">{{ issue.parameter|default:"—" }}</td>
+                        <td>{{ issue.discovered_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- New Scan Modal -->
+<div id="new-scan-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#252526;border:1px solid #5a5a5a;border-radius:6px;width:520px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.6)">
+        <div style="background:#e8510a;padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-weight:700;font-size:13px;color:white">🔍 New Scan Configuration</span>
+            <span style="cursor:pointer;color:rgba(255,255,255,0.8);font-size:18px" onclick="closeModal()">✕</span>
+        </div>
+        <div style="padding:20px">
+
+            <form method="post" action="{% url 'burp:start_scan' %}">
+                {% csrf_token %}
+                <div class="form-row" style="margin-bottom:14px">
+                    <span class="form-label">Target URL:</span>
+                    <input class="form-input" name="url" placeholder="https://example.com" style="flex:1" required>
+                </div>
+                <div class="form-row" style="margin-bottom:14px">
+                    <span class="form-label">Scan type:</span>
+                    <select class="form-select" name="scan_type" style="flex:1">
+                        <option value="full">Full scan</option>
+                        <option value="passive">Passive scan only</option>
+                        <option value="active">Active scan</option>
+                        <option value="light">Light scan</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:14px">
+                    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">Scan areas:</div>
+                    <div style="display:flex;gap:16px;flex-wrap:wrap">
+                        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer">
+                            <input type="checkbox" name="check_sqli" checked style="accent-color:var(--orange)"> SQLi
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer">
+                            <input type="checkbox" name="check_xss" checked style="accent-color:var(--orange)"> XSS
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer">
+                            <input type="checkbox" name="check_csrf" style="accent-color:var(--orange)"> CSRF
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer">
+                            <input type="checkbox" name="check_headers" style="accent-color:var(--orange)"> Headers
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer">
+                            <input type="checkbox" name="check_idor" style="accent-color:var(--orange)"> IDOR
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;cursor:pointer">
+                            <input type="checkbox" name="check_ssrf" style="accent-color:var(--orange)"> SSRF
+                        </label>
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+                    <button type="button" class="btn btn-default" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-orange">▶ Start scan</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function showNewScanModal() {
+    document.getElementById('new-scan-modal').style.display = 'flex';
+}
+function closeModal() {
+    document.getElementById('new-scan-modal').style.display = 'none';
+}
+</script>
+
+{% endblock %}

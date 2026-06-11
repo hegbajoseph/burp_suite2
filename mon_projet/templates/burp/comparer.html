@@ -1,0 +1,56 @@
+{% extends "burp/base.html" %}{% block title %}Comparer{% endblock %}{% block content %}
+<div class="page-header"><div><div class="page-title">⊞ <span>Comparer</span></div><div class="page-subtitle">Comparaison de requêtes ou de données</div></div></div>
+<div class="content-area">
+  <div class="grid-2" style="gap:16px;margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header">⬡ Texte A</div>
+      <div class="card-body"><textarea id="c-left" class="textarea" style="min-height:200px;font-size:11px;" placeholder="Collez le premier texte ici..."></textarea></div>
+    </div>
+    <div class="card">
+      <div class="card-header">⬡ Texte B</div>
+      <div class="card-body"><textarea id="c-right" class="textarea" style="min-height:200px;font-size:11px;" placeholder="Collez le second texte ici..."></textarea></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button class="btn btn-primary" onclick="compareTexts()">⊞ Comparer</button>
+    <button class="btn btn-ghost" onclick="clearCompare()">✕ Effacer</button>
+  </div>
+  <div class="card" id="compare-results" style="display:none;">
+    <div class="card-header">⊞ Résultats
+      <span style="margin-left:8px;font-size:10px;color:var(--accent-red);" id="changed-count"></span>
+      <span style="margin-left:8px;font-size:10px;color:var(--text-muted);" id="total-count"></span>
+    </div>
+    <div style="overflow:auto;max-height:400px;">
+      <table class="data-table">
+        <thead><tr><th style="width:40px;">#</th><th>Texte A</th><th>Texte B</th></tr></thead>
+        <tbody id="diff-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}<script>
+async function compareTexts() {
+  const t1 = document.getElementById('c-left').value;
+  const t2 = document.getElementById('c-right').value;
+  if (!t1 || !t2) { toast('Les deux textes sont requis', 'error'); return; }
+  const r = await fetch('/comparer/compare/', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text1:t1,text2:t2})});
+  const d = await r.json();
+  document.getElementById('compare-results').style.display = 'block';
+  document.getElementById('changed-count').textContent = d.changed_lines + ' lignes différentes';
+  document.getElementById('total-count').textContent = d.total_lines + ' lignes total';
+  document.getElementById('diff-tbody').innerHTML = d.diffs.map(diff => `
+    <tr style="${diff.changed ? 'background: rgba(255,107,53,0.06);' : ''}">
+      <td style="color:var(--text-muted);">${diff.line}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:${diff.changed ? '#ffd23f' : 'var(--text-secondary)'};">${diff.left||'<span style="color:var(--text-muted);">(vide)</span>'}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:${diff.changed ? '#06d6a0' : 'var(--text-secondary)'};">${diff.right||'<span style="color:var(--text-muted);">(vide)</span>'}</td>
+    </tr>
+  `).join('');
+  toast(`${d.changed_lines} différences trouvées`, d.changed_lines > 0 ? 'warning' : 'success');
+}
+function clearCompare() {
+  document.getElementById('c-left').value='';
+  document.getElementById('c-right').value='';
+  document.getElementById('compare-results').style.display='none';
+}
+</script>{% endblock %}

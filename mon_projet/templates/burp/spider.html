@@ -1,0 +1,65 @@
+{% extends "burp/base.html" %}{% block title %}Spider{% endblock %}{% block content %}
+<div class="page-header"><div><div class="page-title">◉ <span>Spider</span></div><div class="page-subtitle">Exploration automatique des URLs et formulaires</div></div></div>
+<div class="content-area">
+  <div class="card" style="margin-bottom: 16px;">
+    <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;">
+      <div style="flex:1;"><label class="form-label">URL de départ</label>
+        <input type="url" id="spider-url" class="input" placeholder="https://example.com"></div>
+      <div style="width:140px;"><label class="form-label">Profondeur max</label>
+        <select id="spider-depth" class="select"><option>1</option><option selected>2</option><option>3</option><option>5</option></select></div>
+      <button class="btn btn-primary" onclick="startSpider()">◉ Lancer Spider</button>
+    </div>
+    <div id="spider-progress" style="display:none;padding:0 16px 12px;">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:4px;">
+        <span id="spider-status">En cours...</span><span id="spider-urls-found">0 URLs</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="spider-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">◉ URLs découvertes <span style="margin-left:auto;font-size:10px;color:var(--text-muted);">{{ results.count }} total</span></div>
+    <div style="overflow:auto;max-height:450px;">
+      <table class="data-table" id="spider-table">
+        <thead><tr><th>URL</th><th>Méthode</th><th>Statut</th><th>Type</th><th>Taille</th><th>Découvert</th></tr></thead>
+        <tbody id="spider-tbody">
+          {% for r in results %}
+          <tr>
+            <td style="color:var(--accent-blue);max-width:350px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.url }}</td>
+            <td><span class="badge" style="background:rgba(76,201,240,0.15);color:#4cc9f0;">{{ r.method }}</span></td>
+            <td>{% if r.status_code %}<span class="badge badge-{% if r.status_code < 300 %}200{% elif r.status_code < 400 %}300{% elif r.status_code < 500 %}400{% else %}500{% endif %}">{{ r.status_code }}</span>{% endif %}</td>
+            <td style="color:var(--text-muted);font-size:10px;">{{ r.content_type|truncatechars:30 }}</td>
+            <td style="color:var(--text-muted);">{{ r.content_length }}</td>
+            <td style="color:var(--text-muted);">{{ r.discovered_at|date:"H:i:s" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">Lance un spider pour découvrir des URLs</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}<script>
+async function startSpider() {
+  const url = document.getElementById('spider-url').value;
+  if (!url) { toast('URL requise', 'error'); return; }
+  document.getElementById('spider-progress').style.display = 'block';
+  let p = 0;
+  const r = await fetch('/spider/start/', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+  const d = await r.json();
+  toast('Spider démarré!', 'success');
+  const poll = setInterval(async () => {
+    p = Math.min(p+10, 95);
+    document.getElementById('spider-fill').style.width = p+'%';
+    const resp = await fetch(`/scanner/${d.id}/status/`);
+    const sd = await resp.json();
+    if (sd.status === 'completed') {
+      clearInterval(poll);
+      document.getElementById('spider-fill').style.width = '100%';
+      document.getElementById('spider-status').textContent = '✓ Spider terminé!';
+      toast('Spider terminé!', 'success');
+      setTimeout(() => location.reload(), 1000);
+    }
+  }, 1500);
+}
+</script>{% endblock %}

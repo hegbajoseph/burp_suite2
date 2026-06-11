@@ -1,19 +1,7 @@
-﻿# Python
-__pycache__/
+﻿__pycache__/
 *.pyc
 *.pyo
-*.pyd
-
-# Django
-*.sqlite3
 db.sqlite3
-*.log
-media/
-
-# Environnement
 .env
 venv/
 env/
-
-# Secrets
-tuto/settings.py
